@@ -9,17 +9,17 @@ export default function HermesChatPage() {
     <DashboardPageLayout
       header={{
         title: "Hermes Chat",
-        description: "Memory & conversation hub",
+        description: "Memory & conversation hub — original terminal UI",
         icon: EmailIcon,
       }}
     >
       <div className="-mx-3 md:-mx-6 -mb-6 h-[calc(100vh-14rem)]">
         <iframe
-          src="http://localhost:9119/chat"
+          src="http://127.0.0.1:9119/chat"
           className="w-full h-full border-0 rounded-b-lg"
           title="Hermes Chat"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          allow="clipboard-read; clipboard-write"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+          style={{ background: "#0a0a0f" }}
         />
       </div>
     </DashboardPageLayout>
