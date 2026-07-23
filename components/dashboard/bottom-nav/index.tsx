@@ -12,11 +12,13 @@ import GearIcon from "@/components/icons/gear";
 import LockIcon from "@/components/icons/lock";
 import BoomIcon from "@/components/icons/boom";
 import ZesIcon from "@/components/icons/zes-icon";
+import BuildingIcon from "@/components/icons/building";
 
 const navItems = [
   { title: "Overview", href: "/", icon: BracketsIcon, desc: "Home" },
   { title: "Lab", href: "/laboratory", icon: AtomIcon, desc: "Experiments" },
   { title: "Kanban", href: "/kanban", icon: BoomIcon, desc: "Tasks" },
+  { title: "Companies", href: "/company", icon: BuildingIcon, desc: "Teams" },
   { title: "System", href: "/system", icon: ProcessorIcon, desc: "Resources" },
   { title: "Services", href: "/service", icon: CuteRobotIcon, desc: "Guard Bots" },
   { title: "Comm", href: "/communication", icon: EmailIcon, desc: "Messages" },

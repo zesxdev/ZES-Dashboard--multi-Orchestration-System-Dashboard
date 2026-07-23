@@ -30,6 +30,7 @@ import CuteRobotIcon from "@/components/icons/cute-robot";
 import EmailIcon from "@/components/icons/email";
 import GearIcon from "@/components/icons/gear";
 import ZesIcon from "@/components/icons/zes-icon";
+import BuildingIcon from "@/components/icons/building";
 import DotsVerticalIcon from "@/components/icons/dots-vertical";
 import { Bullet } from "@/components/ui/bullet";
 import LockIcon from "@/components/icons/lock";
@@ -75,6 +76,12 @@ const data = {
           title: "Kanban",
           url: "/kanban",
           icon: GearIcon,
+          isActive: false,
+        },
+        {
+          title: "Companies",
+          url: "/company",
+          icon: BuildingIcon,
           isActive: false,
         },
         {

@@ -8,25 +8,31 @@ Unified agent orchestration dashboard + Termux backend stack.
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                    ZES System                             │
-│                                                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
-│  │  Codex   │  │  Hermes  │  │ OpenClaude│               │
-│  │  CLI     │  │  Agent   │  │  (OC)    │               │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘               │
-│       │             │             │                      │
-│       └─────────┬───┴─────────────┘                      │
-│                 ▼                                         │
-│       ┌──────────────────┐                               │
-│       │  ZES Memory Hub   │  (unified memory)             │
-│       └──────────────────┘                               │
-│                                                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐       │
-│  │ 9Router  │  │  Bridge  │  │ ZES Dashboard    │       │
-│  │ AI GW    │  │  Server  │  │ (Next.js + shadcn)│       │
-│  └──────────┘  └──────────┘  └──────────────────┘       │
-└──────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                    ZES System                               │
+│                                                            │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                 │
+│  │  Codex   │  │  Hermes  │  │ OpenClaude│                 │
+│  │  CLI     │  │  Agent   │  │  (OC)    │                 │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                 │
+│       │             │             │                        │
+│       └─────────┬───┴─────────────┘                        │
+│                 ▼                                           │
+│       ┌─────────────────────┐                              │
+│       │  BitRouter (:4356)  │  ← primary gateway            │
+│       │  53 models, 4 prov  │                              │
+│       └─────────┬───────────┘                              │
+│                 ▼                                           │
+│       ┌─────────────────────┐  ┌──────────────────┐       │
+│       │  9Router (:20128)   │  │ ZES Dashboard    │       │
+│       │  Legacy (deprecated)│  │ (:5051 Next.js)  │       │
+│       └─────────────────────┘  └──────────────────┘       │
+│                                                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐         │
+│  │ Memory   │  │ Bridge   │  │ Companies/OrgChrt│         │
+│  │ Hub      │  │ Server   │  │ Budget/Strategy  │         │
+│  └──────────┘  └──────────┘  └──────────────────┘         │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ## Pages (Dashboard)
@@ -36,6 +42,7 @@ Unified agent orchestration dashboard + Termux backend stack.
 - `/service` — Guard Bots service control
 - `/system` — Hardware & resource monitoring
 - `/kanban` — Task board
+- `/company` — Companies Board (Org Chart, Budget, Strategy, Hire, Compare, Pipeline)
 - `/hermes-chat` — Hermes bridge chat
 - `/oc-chat` — OpenClaude bridge chat
 - `/9router` — API router interface
@@ -51,13 +58,18 @@ All services run locally on Android/Termux. See `scripts/start-all.sh` for full 
 
 | Service | Port | Description |
 |---------|------|-------------|
-| 9Router AI Gateway | `:20128` | LLM proxy — routes all API calls |
+| BitRouter AI Gateway | `:4356` | LLM proxy (primary) — 53 models, 4 providers |
+| 9Router AI Gateway | `:20128` | LLM proxy (legacy/fallback) |
 | Bridge Server | `:5300` | HTTP/SSE bridge for chat interfaces |
 | Hermes Dashboard | `:9119` | Hermes AI agent web UI |
+| ZES Dashboard | `:5051` | Next.js dashboard (Companies, System, Kanban) |
 | Tor SOCKS5 | `:9050` | Proxy for IP rotation |
 
 ### Default Model
-All agents use `oc/deepseek-v4-flash-free` via 9Router.
+All agents use `opencode-zen:deepseek-v4-flash-free` via BitRouter.
+
+### Companies API
+Companies data stored at `~/.hermes/companies.json` (custom) and `~/.hermes/roster.json` (primary). CRUD via `~/.hermes/companies_manager.py`. Import Paperclip-compatible packages: `zes-company-import <dir>`.
 
 ### IP Rotation
 Tor-based IP rotation prevents OpenCode Zen rate limits:

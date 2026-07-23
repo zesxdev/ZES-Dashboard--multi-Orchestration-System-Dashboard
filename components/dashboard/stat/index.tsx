@@ -11,8 +11,8 @@ interface DashboardStatProps {
   description?: string;
   tag?: string;
   icon: React.ElementType;
-  intent?: "positive" | "negative" | "neutral";
-  direction?: "up" | "down";
+  intent?: "positive" | "negative" | "neutral" | "warning";
+  direction?: "up" | "down" | "neutral";
 }
 
 export default function DashboardStat({

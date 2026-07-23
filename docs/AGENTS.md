@@ -1,34 +1,40 @@
 # ZES System — Unified Agent Instructions
 
-**Version:** 3.3.0  
+**Version:** 3.4.0  
 **Scope:** This file governs all agents operating within the ZES (ZES Enterprise System) environment. It supersedes individual AGENTS.md files where conflicts exist.
 
 ---
 
 ## 1. System Overview
 
-ZES is a unified personal AI system running on Termux (Android). It orchestrates three primary agents — **Codex CLI**, **Hermes Agent**, and **OpenClaude** — plus supporting services (9Router AI Gateway, Kanban, Dashboard).
+ZES is a unified personal AI system running on Termux (Android). It orchestrates three primary agents — **Codex CLI**, **Hermes Agent**, and **OpenClaude** — plus supporting services (BitRouter AI Gateway, 9Router Legacy, Kanban, Dashboard).
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                    ZES System                             │
-│                                                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
-│  │  Codex   │  │  Hermes  │  │ OpenClaude│               │
-│  │  CLI     │  │  Agent   │  │  (OC)    │               │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘               │
-│       │             │             │                      │
-│       └─────────┬───┴─────────────┘                      │
-│                 ▼                                         │
-│       ┌──────────────────┐                               │
-│       │  ZES Memory Hub   │  (unified memory)             │
-│       └──────────────────┘                               │
-│                                                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐       │
-│  │ 9Router  │  │  Kanban  │  │ System Dashboard │       │
-│  │ AI GW    │  │  Board   │  │ (React+shadcn)   │       │
-│  └──────────┘  └──────────┘  └──────────────────┘       │
-└──────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                    ZES System                               │
+│                                                            │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                 │
+│  │  Codex   │  │  Hermes  │  │ OpenClaude│                 │
+│  │  CLI     │  │  Agent   │  │  (OC)    │                 │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                 │
+│       │             │             │                        │
+│       └─────────┬───┴─────────────┘                        │
+│                 ▼                                           │
+│       ┌─────────────────────┐                              │
+│       │  BitRouter (:4356)  │  ← primary gateway            │
+│       │  53 models, 4 prov  │                              │
+│       └─────────┬───────────┘                              │
+│                 ▼                                           │
+│       ┌─────────────────────┐  ┌──────────────────┐       │
+│       │  9Router (:20128)   │  │ ZES Dashboard    │       │
+│       │  Legacy (deprecated)│  │ (:5051, :9119)   │       │
+│       └─────────────────────┘  └──────────────────┘       │
+│                                                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐         │
+│  │ Memory   │  │ Kanban   │  │ Companies/OrgChrt│         │
+│  │ Hub      │  │ Board    │  │ Budget/Strategy  │         │
+│  └──────────┘  └──────────┘  └──────────────────┘         │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ### Architecture Principles
@@ -36,9 +42,10 @@ ZES is a unified personal AI system running on Termux (Android). It orchestrates
 1. **Hermes is the memory hub** — All memories flow through ZESMemoryProvider
 2. **Codex is the coding agent** — Primary for code generation, edits, repo work
 3. **OpenClaude is the chat/UI agent** — Terminal UI, slash commands, tool use
-4. **9Router is the AI gateway** — Routes LLM requests, manages API keys
-5. **Skills are shared** — Codex skills available to Hermes and vice versa
-6. **Services communicate via HTTP** — REST APIs, WebSocket, file-based bridges
+4. **BitRouter is the AI gateway (primary)** — Routes LLM requests to opencode-zen, openai, anthropic, openrouter. 53 models across 4 providers. :4356
+5. **9Router is legacy (fallback)** — Still at :20128 for gh/* models until BitRouter full migration
+6. **Skills are shared** — Codex skills available to Hermes and vice versa
+7. **Services communicate via HTTP** — REST APIs, WebSocket, file-based bridges
 
 ---
 
@@ -72,12 +79,24 @@ ZES is a unified personal AI system running on Termux (Android). It orchestrates
 - **Entry point:** `bun run start` from `~/openclaude/`
 - **Stack:** TypeScript strict, React + Ink, ESM
 
-### 9Router AI Gateway (`~/9router/`)
-- **Primary role:** LLM request router — API key management, model routing, load balancing
+### BitRouter AI Gateway (`proot-distro debian -> /root/.bitrouter/`)
+- **Primary role:** LLM request router — routes to opencode-zen, openai, anthropic, openrouter
+- **Runtime:** Rust binary in proot-distro debian
+- **Port:** :4356 (OpenAI-compatible endpoint)
+- **Config:** `~/.bitrouter/bitrouter.yaml` (host-side copy), `/root/.bitrouter/bitrouter.yaml` (proot)
+- **Keys:** `~/.secure-credentials/master.env` — 4 keys sourced by `bitrouter-start`
+- **Models:** 53 live models across 4 providers
+- **Policy Engine:** fingerprints (opening→flagship, after_read_file→cheap), adequacy auto-escalation
+- **Entry point:** `bitrouter-start` (wraps binary with env injection)
+- **Binary:** `~/.local/bin/bitrouter.orig`
+- **OAuth tokens:** `/root/.local/share/bitrouter/oauth-tokens.json` (GitHub Copilot)
+
+### 9Router AI Gateway `[LEGACY]` (`~/9router/`)
+- **Primary role:** Former LLM request router — now fallback only
 - **Runtime:** Node.js
-- **Port:** :20128 (OpenAI-compatible endpoint)
+- **Port:** :20128 (OpenAI-compatible endpoint) — fallback from BitRouter
 - **Config:** `~/9router/.env`, `~/9router/data/`
-- **Providers:** OpenAI, Anthropic, Groq, Alibaba, LLM7, and free models from freellm.net
+- **Status:** Legacy — BitRouter is primary. 9Router remains as fallback for gh/* models until GitHub Copilot OAuth cleanup.
 
 ### System Dashboard (`system-status/`)
 - **Primary role:** Web UI for system control, service status, memory viewer
@@ -139,11 +158,16 @@ self-improvement loop (Hermes)
 
 | Service | Port | Type | Status Check |
 |---------|------|------|-------------|
-| 9Router AI Gateway | [http://localhost:20128](http://localhost:20128) | LLM proxy | `curl http://localhost:20128/v1/models` |
-| Hermes Dashboard | [http://localhost:9119](http://localhost:9119) | Web UI | `curl http://localhost:9119/` |
+| BitRouter AI Gateway | [http://localhost:4356](http://localhost:4356) | LLM proxy (primary) | `curl http://localhost:4356/v1/models` |
+| 9Router AI Gateway | [http://localhost:20128](http://localhost:20128) | LLM proxy (legacy/fallback) | `curl http://localhost:20128/v1/models` |
+| Hermes Dashboard | [http://localhost:9119](http://localhost:9119) | Hermes web UI | `curl http://localhost:9119/` |
 | Hermes Kanban | [http://localhost:9119/kanban](http://localhost:9119/kanban) | Board UI | `curl http://localhost:9119/kanban` |
-| ZES Dashboard | [http://localhost:5173](http://localhost:5173) | Main dashboard (React+shadcn) | `curl http://localhost:5173/` |
-| Old ZES Core (dev ref) | [http://localhost:8082/dashboard](http://localhost:8082/dashboard) | Dev reference / legacy | `curl http://localhost:8082/dashboard` |
+| ZES Dashboard (Next.js) | [http://localhost:5051](http://localhost:5051) | Companies, System, Topology, Services | `curl http://localhost:5051/` |
+| ZES Dashboard (old) | [http://localhost:5173](http://localhost:5173) | Ancient dev dashboard | `curl http://localhost:5173/` |
+| ZES Cyber Dashboard | [http://localhost:7070](http://localhost:7070) | Cyber/system status | — |
+| Bridge | [http://localhost:5300](http://localhost:5300) | Service bridge | `curl http://localhost:5300/` |
+| Memory Hub | SQLite `~/.zes/memory_hub.sqlite` | Unified memory store (FTS5) | `python3 -c "from plugins.memory.zes_memory.store import MemoryStore; s=MemoryStore(); s.initialize(); print(len(s.search('')))"` |
+| ZES HUD | `hud` or `zes-hud` | Terminal system status overlay | `hud --once` |
 
 ---
 
