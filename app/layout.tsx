@@ -10,10 +10,9 @@ import mockDataJson from "@/mock.json";
 import type { MockData } from "@/types/dashboard";
 import Widget from "@/components/dashboard/widget";
 import Notifications from "@/components/dashboard/notifications";
-import { NotificationBell } from "@/components/dashboard/notification-bell";
 import { MobileChat } from "@/components/chat/mobile-chat";
 import Chat from "@/components/chat";
-import CommandPaletteWrapper from "@/components/dashboard/command-palette-wrapper";
+import BottomNav from "@/components/dashboard/bottom-nav";
 
 const mockData = mockDataJson as MockData;
 
@@ -32,11 +31,11 @@ const isV0 = process.env["VERCEL_URL"]?.includes("vusercontent.net") ?? false;
 
 export const metadata: Metadata = {
   title: {
-    template: "%s – ZES",
-    default: "ZES Orchestration Dashboard",
+    template: "%s – ZES OS",
+    default: "ZES OS",
   },
   description:
-    "ZES Orchestration Dashboard — real-time monitoring, agent orchestration, and system control.",
+    "ZES OS — Zero Entropy System. Unified agent orchestration.",
     generator: 'v0.app'
 };
 
@@ -46,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className="dark">
       <head>
         <link
           rel="preload"
@@ -58,7 +57,6 @@ export default function RootLayout({
       </head>
       <body
         className={`${rebelGrotesk.variable} ${robotoMono.variable} antialiased`}
-        suppressHydrationWarning
       >
         <V0Provider isV0={isV0}>
           <SidebarProvider>
@@ -66,18 +64,16 @@ export default function RootLayout({
             <MobileHeader mockData={mockData} />
 
             {/* Desktop Layout */}
-            <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-gap lg:px-sides">
-              <div className="hidden lg:block col-span-2 sticky top-0 h-screen">
+            <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-gap lg:px-sides min-h-screen">
+              <div className="hidden lg:block col-span-2 sticky top-0 h-screen overflow-hidden">
                 <DashboardSidebar />
               </div>
-              <div className="col-span-1 lg:col-span-7">
-                {children}
+              <div className="col-span-1 lg:col-span-7 flex flex-col pb-[5rem]">
+                <div className="flex-1">{children}</div>
+
               </div>
               <div className="col-span-3 hidden lg:block">
                 <div className="space-y-gap py-sides min-h-screen max-h-screen sticky top-0 overflow-clip">
-                  <div className="flex items-center justify-end px-4">
-                    <NotificationBell />
-                  </div>
                   <Widget widgetData={mockData.widgetData} />
                   <Notifications
                     initialNotifications={mockData.notifications}
@@ -89,8 +85,10 @@ export default function RootLayout({
 
             {/* Mobile Chat - floating CTA with drawer */}
             <MobileChat />
+
+            {/* Bottom Navigation - mobile only */}
+            <BottomNav />
           </SidebarProvider>
-          <CommandPaletteWrapper />
         </V0Provider>
       </body>
     </html>
