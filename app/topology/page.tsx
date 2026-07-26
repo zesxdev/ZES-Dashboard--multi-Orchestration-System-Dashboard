@@ -1,169 +1,214 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardPageLayout from "@/components/dashboard/layout";
 import DashboardCard from "@/components/dashboard/card";
-import {
-  Monitor, Server, Database, Shield, Cpu, Globe, Lock, Wifi,
-  ArrowRight, Zap, Bot, Router, Terminal, HardDrive, Cloud
-} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import {
+  Monitor, Server, Database, Shield, Cpu, Globe, Lock, Wifi,
+  ArrowRight, Zap, Bot, Router, Terminal, HardDrive, Cloud, Activity,
+} from "lucide-react";
+import { getHealth } from "@/lib/api-client";
+import WiringDiagram from "@/components/wireflow/wiring-diagram";
 import GearIcon from "@/components/icons/gear";
 
-const nodes = [
-  { id: "codex", label: "Codex Agent", icon: Bot, port: 5900, color: "from-blue-500 to-indigo-600", tier: 0 },
-  { id: "router", label: "9Router", icon: Router, port: 20128, color: "from-cyan-500 to-blue-600", tier: 0 },
-  { id: "flask", label: "Flask API", icon: Terminal, port: 5002, color: "from-emerald-500 to-teal-600", tier: 0 },
-  { id: "dashboard1", label: "Dashboard v1", icon: Monitor, port: 5173, color: "from-violet-500 to-fuchsia-600", tier: 1 },
-  { id: "dashboard2", label: "ZES OS", icon: Monitor, port: 7070, color: "from-purple-500 to-pink-600", tier: 1 },
-  { id: "hermes", label: "Hermes", icon: Bot, port: 9119, color: "from-amber-500 to-orange-600", tier: 1 },
-  { id: "bridge", label: "Bridge", icon: Server, port: 5300, color: "from-sky-500 to-blue-600", tier: 1 },
-  { id: "zes", label: "ZES System", icon: Cpu, port: 4000, color: "from-green-500 to-emerald-600", tier: 2 },
-  { id: "db", label: "Database", icon: Database, port: 5432, color: "from-red-500 to-rose-600", tier: 2 },
-  { id: "storage", label: "Object Store", icon: HardDrive, port: 9000, color: "from-yellow-500 to-amber-600", tier: 2 },
+const services = [
+  { id: "codex", label: "Codex CLI", icon: Bot, port: 5900, color: "from-blue-500 to-indigo-600", tier: 0 },
+  { id: "claude", label: "Claude Code", icon: Terminal, port: 5905, color: "from-emerald-500 to-teal-600", tier: 0 },
+  { id: "hermes", label: "Hermes Agent", icon: Zap, port: 0, color: "from-amber-500 to-orange-600", tier: 0 },
+  { id: "9router", label: "9Router Gateway", icon: Router, port: 20128, color: "from-purple-500 to-violet-600", tier: 1 },
+  { id: "amux", label: "Teams", icon: Monitor, port: 8822, color: "from-cyan-500 to-sky-600", tier: 1 },
+  { id: "flask-api", label: "Flask API", icon: Database, port: 5002, color: "from-pink-500 to-rose-600", tier: 1 },
+  { id: "zes-dashboard", label: "ZES :7070", icon: Monitor, port: 7070, color: "from-emerald-500 to-green-600", tier: 2 },
+  { id: "memory-hub", label: "Memory Hub", icon: Database, port: 0, color: "from-teal-500 to-emerald-600", tier: 2 },
+  { id: "vscode", label: "VS Code Server", icon: HardDrive, port: 8000, color: "from-sky-500 to-blue-600", tier: 2 },
+  { id: "chromium", label: "Headless CDP", icon: Globe, port: 9222, color: "from-yellow-500 to-amber-600", tier: 2 },
+  { id: "cloudflare", label: "Cloudflare", icon: Cloud, port: 0, color: "from-orange-500 to-red-600", tier: 2 },
 ];
-
-const connections = [
-  ["codex", "router"], ["codex", "flask"], ["router", "flask"],
-  ["router", "dashboard1"], ["router", "dashboard2"],
-  ["flask", "hermes"], ["flask", "bridge"],
-  ["hermes", "bridge"], ["router", "zes"],
-  ["zes", "db"], ["zes", "storage"],
-];
-
-const ZES_COLORS = [
-  { gradient: "from-blue-500 to-indigo-600", glow: "rgba(99,102,241,0.25)" },
-  { gradient: "from-cyan-500 to-blue-600", glow: "rgba(6,182,212,0.25)" },
-  { gradient: "from-emerald-500 to-teal-600", glow: "rgba(16,185,129,0.2)" },
-  { gradient: "from-violet-500 to-fuchsia-600", glow: "rgba(139,92,246,0.2)" },
-  { gradient: "from-purple-500 to-pink-600", glow: "rgba(168,85,247,0.2)" },
-  { gradient: "from-amber-500 to-orange-600", glow: "rgba(245,158,11,0.2)" },
-  { gradient: "from-sky-500 to-blue-600", glow: "rgba(14,165,233,0.2)" },
-  { gradient: "from-green-500 to-emerald-600", glow: "rgba(16,185,129,0.2)" },
-  { gradient: "from-red-500 to-rose-600", glow: "rgba(239,68,68,0.2)" },
-  { gradient: "from-yellow-500 to-amber-600", glow: "rgba(234,179,8,0.2)" },
-];
-
-const TIER_LABELS = ["Core Services", "Interface Layer", "Data Layer"];
-
-function NetworkNode({ node, index }) {
-  const Icon = node.icon;
-  return (
-    <div className="flex flex-col items-center gap-2 group">
-      <div className={cn(
-        "relative size-16 rounded-2xl bg-gradient-to-br p-0.5",
-        node.color,
-        "shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl"
-      )}
-        style={{ boxShadow: `0 0 20px ${ZES_COLORS[index % ZES_COLORS.length].glow}` }}>
-        <div className="size-full rounded-2xl bg-background flex items-center justify-center">
-          <Icon className="size-7 opacity-80" />
-        </div>
-      </div>
-      <span className="text-xs font-medium text-center">{node.label}</span>
-      <Badge variant="outline" className="text-[9px]">:{node.port}</Badge>
-    </div>
-  );
-}
 
 export default function TopologyPage() {
-  const [selectedNode, setSelectedNode] = useState(null);
+  const [health, setHealth] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const fetchHealth = async () => {
+      try {
+        const h = await getHealth();
+        if (h) setHealth(h as any[]);
+      } catch {}
+      setLoading(false);
+    };
+    fetchHealth();
+    const iv = setInterval(fetchHealth, 15000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const isServiceAlive = (id: string): boolean | null => {
+    const match = health.find((h: any) =>
+      h.name?.toLowerCase() === id.toLowerCase() ||
+      h.service?.toLowerCase() === id.toLowerCase() ||
+      h.id?.toLowerCase() === id.toLowerCase()
+    );
+    if (match !== undefined) return match.alive ?? match.status === "running" ?? match.ok ?? false;
+    // For services without explicit health check, check port
+    const svc = services.find((s) => s.id === id);
+    if (svc && svc.port > 0) {
+      const portMatch = health.find((h: any) => h.port === svc.port);
+      return portMatch ? (portMatch.alive ?? false) : null;
+    }
+    // Known always-on services
+    if (id === "memory-hub" || id === "hermes" || id === "zes-dashboard") return true;
+    return null;
+  };
+
+  const getStatusColor = (alive: boolean | null) => {
+    if (alive === true) return "bg-emerald-500 shadow-[0_0_8px_rgba(34,197,94,0.3)]";
+    if (alive === false) return "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.3)]";
+    return "bg-muted-foreground/30";
+  };
+
+  const tiers = [
+    { label: "Agent Layer", tier: 0, color: "border-l-blue-500/50" },
+    { label: "Core Services", tier: 1, color: "border-l-purple-500/50" },
+    { label: "Infrastructure", tier: 2, color: "border-l-emerald-500/50" },
+  ];
+
+  const online = services.filter((s) => isServiceAlive(s.id) === true).length;
+  const offline = services.filter((s) => isServiceAlive(s.id) === false).length;
+  const unknown = services.filter((s) => isServiceAlive(s.id) === null).length;
+
+  const q = search.toLowerCase();
+  const filteredServices = services.filter((s) =>
+    q === "" || s.label.toLowerCase().includes(q) || s.id.toLowerCase().includes(q)
+  );
 
   return (
-    <DashboardPageLayout header={{ title: "Topology", description: "ZES system architecture", icon: GearIcon }}>
-      {/* Topology Visualization */}
-      <DashboardCard title="SYSTEM TOPOLOGY" intent="default" className="mb-6">
-        <div className="relative py-8 px-4">
-          {/* Connection lines */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" style={{ zIndex: 0 }}>
-            {connections.map(([from, to], i) => {
-              const fNode = nodes.find(n => n.id === from);
-              const tNode = nodes.find(n => n.id === to);
-              if (!fNode || !tNode) return null;
-              return (
-                <line key={i}
-                  x1={`${15 + fNode.tier * 35 + nodes.filter(n => n.tier === fNode.tier).indexOf(fNode) * 18}%`}
-                  y1={`${25 + fNode.tier * 30}%`}
-                  x2={`${15 + tNode.tier * 35 + nodes.filter(n => n.tier === tNode.tier).indexOf(tNode) * 18}%`}
-                  y2={`${25 + tNode.tier * 30}%`}
-                  stroke="currentColor" strokeWidth="1" strokeDasharray="4 4"
-                  className="text-muted-foreground/30" />
-              );
-            })}
-          </svg>
+    <DashboardPageLayout
+      header={{
+        title: "Topology",
+        description: `${online} online · ${offline} offline · ${unknown} unknown · ${services.length} total`,
+        icon: GearIcon,
+      }}
+    >
+      {/* Controls */}
+      <div className="relative mb-6">
+        <Activity className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Filter services..."
+          className="w-full rounded-lg border border-border bg-white/5 pl-9 pr-3 py-2 text-sm outline-none focus:border-primary transition-colors"
+        />
+      </div>
 
-          {/* Tiers */}
-          {[0, 1, 2].map(tier => (
-            <div key={tier} className="relative z-10 mb-8 last:mb-0">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="h-px flex-1 bg-border/30" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  {TIER_LABELS[tier]}
+      {loading ? (
+        <div className="text-center py-20 text-muted-foreground">Loading topology...</div>
+      ) : (
+        tiers.map((tier) => {
+          const tierServices = filteredServices.filter((s) => s.tier === tier.tier);
+          if (tierServices.length === 0) return null;
+          return (
+            <div key={tier.tier} className="mb-8">
+              <div className="flex items-center gap-2 mb-3">
+                <div className={cn("w-1 h-4 rounded-full", tier.color.replace("border-l-", "bg-"))} />
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {tier.label}
                 </span>
-                <div className="h-px flex-1 bg-border/30" />
+                <span className="text-[10px] font-mono text-muted-foreground/50">
+                  {tierServices.length} nodes
+                </span>
               </div>
-              <div className="flex justify-around gap-4 flex-wrap">
-                {nodes.filter(n => n.tier === tier).map((node, i) => (
-                  <button key={node.id} onClick={() => setSelectedNode(selectedNode?.id === node.id ? null : node)}
-                    className="transition-all">
-                    <NetworkNode node={node} index={nodes.indexOf(node)} />
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </DashboardCard>
 
-      {/* Selected Node Detail */}
-      {selectedNode && (
-        <DashboardCard title={selectedNode.label} intent="default" className="mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-accent/20 rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">Port</div>
-              <div className="font-mono text-lg font-bold">{selectedNode.port}</div>
-            </div>
-            <div className="bg-accent/20 rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">Status</div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(74,222,128,0.6)]" />
-                <span className="text-sm font-medium text-success">Online</span>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {tierServices.map((svc) => {
+                  const alive = isServiceAlive(svc.id);
+                  const Icon = svc.icon;
+                  return (
+                    <div
+                      key={svc.id}
+                      className={cn(
+                        "relative rounded-xl border p-4 transition-all group",
+                        alive === true
+                          ? "border-emerald-500/30 bg-emerald-500/5"
+                          : alive === false
+                          ? "border-red-500/30 bg-red-500/5"
+                          : "border-border/30 bg-white/5",
+                        "hover:scale-[1.02] cursor-default"
+                      )}
+                    >
+                      {/* Status dot */}
+                      <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                        <div className={cn("size-2 rounded-full", getStatusColor(alive))} />
+                        <span className={cn(
+                          "text-[8px] font-semibold uppercase font-mono",
+                          alive === true ? "text-emerald-400" :
+                          alive === false ? "text-red-400" : "text-muted-foreground/50"
+                        )}>
+                          {alive === true ? "ONLINE" : alive === false ? "OFFLINE" : "UNKNOWN"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={cn(
+                          "size-9 rounded-lg flex items-center justify-center bg-gradient-to-br shrink-0",
+                          svc.color
+                        )}>
+                          <Icon className="size-4 text-white" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold">{svc.label}</div>
+                          <div className="text-[9px] text-muted-foreground font-mono">
+                            {svc.port > 0 ? `:${svc.port}` : svc.id}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Port badge */}
+                      {svc.port > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Wifi className="size-2.5 text-muted-foreground/50" />
+                          <span className="text-[9px] text-muted-foreground/50 font-mono">
+                            127.0.0.1:{svc.port}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <div className="bg-accent/20 rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">Tier</div>
-              <div className="text-sm font-medium">{TIER_LABELS[selectedNode.tier]}</div>
-            </div>
-            <div className="bg-accent/20 rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">Connections</div>
-              <div className="text-sm font-medium">
-                {connections.filter(([f, t]) => f === selectedNode.id || t === selectedNode.id).length}
-              </div>
-            </div>
-          </div>
-        </DashboardCard>
+          );
+        })
       )}
 
-      {/* Legend */}
-      <DashboardCard title="SERVICE LEGEND" intent="default">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {nodes.map((node, i) => {
-            const Icon = node.icon;
-            return (
-              <div key={node.id} className="flex items-center gap-2 bg-accent/10 rounded-lg px-3 py-2">
-                <div className={cn("size-6 rounded-lg bg-gradient-to-br flex items-center justify-center", node.color)}>
-                  <Icon className="size-3.5 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-medium truncate">{node.label}</div>
-                  <div className="text-[9px] text-muted-foreground">:{node.port}</div>
-                </div>
-              </div>
-            );
-          })}
+
+      {/* ── Interactive Wiring Diagram ── */}
+      <details className="group mt-8">
+        <summary className="cursor-pointer text-sm font-semibold text-foreground/70 hover:text-foreground transition-colors flex items-center gap-2 mb-4">
+          <span className="inline-block size-1.5 rounded-full bg-primary/60" />
+          Interactive Topology Diagram
+          <span className="text-[10px] text-muted-foreground/50 font-mono">click to expand</span>
+        </summary>
+        <div className="rounded-xl border border-border overflow-hidden" style={{ height: 500 }}>
+          <WiringDiagram />
         </div>
-      </DashboardCard>
+      </details>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 text-[10px] text-muted-foreground mt-4 pt-4 border-t border-border/30">
+        <span className="font-semibold uppercase tracking-wider">Legend:</span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2 rounded-full bg-emerald-500" /> Online
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2 rounded-full bg-red-500" /> Offline
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2 rounded-full bg-muted-foreground/30" /> Unknown
+        </span>
+      </div>
     </DashboardPageLayout>
   );
 }

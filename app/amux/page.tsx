@@ -3,8 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-export default function OpenClaudeRedirect() {
+export default function AmuxPage() {
   const router = useRouter();
-  useEffect(() => { router.replace("/claude"); }, [router]);
+  useEffect(() => { router.replace("/teams"); }, [router]);
   return null;
 }

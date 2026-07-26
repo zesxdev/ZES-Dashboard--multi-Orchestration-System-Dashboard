@@ -1,8 +1,7 @@
 "use client";
 
-import React from "react";
 import DashboardPageLayout from "@/components/dashboard/layout";
-import IFramePage from "@/components/dashboard/iframe";
+import ServiceCard from "@/components/dashboard/service-card";
 import CuteRobotIcon from "@/components/icons/cute-robot";
 
 export default function ClaudePage() {
@@ -10,11 +9,26 @@ export default function ClaudePage() {
     <DashboardPageLayout
       header={{
         title: "Claude",
-        description: "AI assistant terminal",
+        description: "Claude AI agent interfaces",
         icon: CuteRobotIcon,
       }}
     >
-      <IFramePage url="http://localhost:5900" title="Claude" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <ServiceCard
+          url="/claude-bridge.html"
+          title="Claude Chat"
+          description="Claude Code chat interface via HTTP bridge. Full terminal UI with session management and input handling."
+          port={8788}
+          icon={CuteRobotIcon}
+        />
+        <ServiceCard
+          url="http://localhost:8788"
+          title="Claude Team"
+          description="Claude Code team mode. Multi-agent coordination with Claude instances working in parallel."
+          port={8788}
+          icon={CuteRobotIcon}
+        />
+      </div>
     </DashboardPageLayout>
   );
 }
