@@ -151,7 +151,7 @@ export default function ActivityPage() {
       ) : events.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <Activity className="size-8 mx-auto mb-2 opacity-50" />
-          <p>No events{filtersource ? ` from "${filterSource}"` : ""}</p>
+          <p>No events{filterSource ? ` from "${filterSource}"` : ""}</p>
         </div>
       ) : (
         <div className="space-y-1">

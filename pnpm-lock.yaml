@@ -26,6 +26,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.10.0
         version: 3.10.0(react-hook-form@7.82.0(react@19.2.8))
+      '@next/swc-wasm-nodejs':
+        specifier: ^16.2.12
+        version: 16.2.12
       '@number-flow/react':
         specifier: latest
         version: 0.6.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -505,6 +508,9 @@ packages:
     cpu: [x64]
     os: [linux]
     libc: [musl]
+
+  '@next/swc-wasm-nodejs@16.2.12':
+    resolution: {integrity: sha512-rNJf+wneZ68vBz9fch4/kR94Z9+FZtQ93eJnYL8RBbHkrnDZ0HY8hHgOP8YYeTDkWzWqriB2ZGobLriw+6M+DQ==}
 
   '@next/swc-win32-arm64-msvc@16.2.11':
     resolution: {integrity: sha512-n89CjtcThnjrwgJMAiI5xbqwLY51zvwC9tSlArmVndAJLYVl9T9UAdlkXTmZvE++idoXe8KdglQlhNRdUp1c6g==}
@@ -2477,6 +2483,8 @@ snapshots:
 
   '@next/swc-linux-x64-musl@16.2.11':
     optional: true
+
+  '@next/swc-wasm-nodejs@16.2.12': {}
 
   '@next/swc-win32-arm64-msvc@16.2.11':
     optional: true

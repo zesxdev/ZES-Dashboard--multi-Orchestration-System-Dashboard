@@ -185,6 +185,8 @@ export default function MemoryGraphPage() {
   useEffect(() => {
     if (loading || !containerRef.current) return;
 
+    let handleResize: () => void = () => {};
+
     const initNetwork = async () => {
       const { Network } = await import("vis-network");
       
@@ -230,7 +232,7 @@ export default function MemoryGraphPage() {
           color: "oklch(0.6 0.05 0 / 0.5)",
           strokeWidth: 0,
         },
-        smooth: { type: "continuous" },
+        smooth: { enabled: true, type: "continuous", roundness: 0.5 },
         width: r.type === "shared_entity" ? 1.5 : 0.8,
         dashes: r.type === "high_trust_similarity",
       }));
@@ -268,7 +270,7 @@ export default function MemoryGraphPage() {
       networkRef.current = network;
 
       // Responsive resize on window change
-      const handleResize = () => {
+      handleResize = () => {
         network.fit({ animation: false });
       };
       window.addEventListener('resize', handleResize);

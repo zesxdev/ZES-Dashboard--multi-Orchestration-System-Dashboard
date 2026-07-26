@@ -7,7 +7,7 @@ interface DashboardCardProps
   extends Omit<React.ComponentProps<typeof Card>, "title"> {
   title: string;
   addon?: React.ReactNode;
-  intent?: "default" | "success";
+  intent?: "default" | "success" | "warning" | "destructive";
   frost?: "green" | "blue" | "orange" | "red";
   children: React.ReactNode;
 }

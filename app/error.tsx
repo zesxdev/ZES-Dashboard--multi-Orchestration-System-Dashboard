@@ -17,7 +17,7 @@ export default function RootError({
       header={{
         title: "Something went wrong",
         description: "An unexpected error occurred",
-        icon: null,
+        icon: AlertTriangle,
       }}
     >
       <div className="flex flex-col items-center justify-center gap-6 py-20">

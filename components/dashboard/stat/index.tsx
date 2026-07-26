@@ -11,8 +11,8 @@ interface DashboardStatProps {
   description?: string;
   tag?: string;
   icon: React.ElementType;
-  intent?: "positive" | "negative" | "neutral";
-  direction?: "up" | "down";
+  intent?: "positive" | "negative" | "neutral" | "warning";
+  direction?: "up" | "down" | "neutral";
   frost?: "green" | "blue" | "orange" | "red";
 }
 
@@ -54,6 +54,7 @@ export default function DashboardStat({
   const getIntentClassName = () => {
     if (intent === "positive") return "text-success";
     if (intent === "negative") return "text-destructive";
+    if (intent === "warning") return "text-warning";
     return "text-muted-foreground";
   };
 
@@ -98,7 +99,7 @@ export default function DashboardStat({
         )}
 
         {/* Marquee Animation */}
-        {direction && (
+        {(direction === "up" || direction === "down") && (
           <div className="absolute top-0 right-0 w-14 h-full pointer-events-none overflow-hidden group">
             <div
               className={cn(
