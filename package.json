@@ -67,6 +67,7 @@
     "tailwindcss-animate": "^1.0.7",
     "use-sync-external-store": "latest",
     "vaul": "^1.1.2",
+    "vis-network": "^10.1.0",
     "zod": "3.25.76",
     "zustand": "latest"
   },
