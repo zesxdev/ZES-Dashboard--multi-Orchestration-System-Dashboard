@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useCallback } from "react";
 import DashboardPageLayout from "@/components/dashboard/layout";
 import { Badge } from "@/components/ui/badge";
