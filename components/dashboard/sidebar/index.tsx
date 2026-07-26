@@ -1,8 +1,8 @@
 "use client";
-
-import * as React from "react";
 import { usePathname } from "next/navigation";
 
+import * as React from "react";
+import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -10,12 +10,11 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
+  SidebarHeader, SidebarRail,
 } from "@/components/ui/sidebar";
 import {
   Popover,
@@ -23,124 +22,102 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import LayoutLeftIcon from "@/components/icons/layout";
 import AtomIcon from "@/components/icons/atom";
 import BracketsIcon from "@/components/icons/brackets";
-import ProcessorIcon from "@/components/icons/proccesor";
 import CuteRobotIcon from "@/components/icons/cute-robot";
-import EmailIcon from "@/components/icons/email";
 import GearIcon from "@/components/icons/gear";
-import ZesIcon from "@/components/icons/zes-icon";
-import BuildingIcon from "@/components/icons/building";
+import TerminalIcon from "@/components/icons/terminal";
+import MonkeyIcon from "@/components/icons/monkey";
 import DotsVerticalIcon from "@/components/icons/dots-vertical";
+import BuildingIcon from "@/components/icons/building";
+import PlusIcon from "@/components/icons/plus";
 import { Bullet } from "@/components/ui/bullet";
 import LockIcon from "@/components/icons/lock";
+import ShieldIcon from "@/components/icons/shield";
+import GitBranchIcon from "@/components/icons/git-branch";
+import CloudIcon from "@/components/icons/cloud";
+import ActivityIcon from "@/components/icons/activity";
+import CalendarIcon from "@/components/icons/calendar";
+import BookTemplateIcon from "@/components/icons/template";
 import Image from "next/image";
 import { useIsV0 } from "@/lib/v0-context";
+import { ThemeToggle } from "@/components/dashboard/theme-toggle";
+import { Sparkles, Target, DollarSign } from "lucide-react";
+
+interface NavItem {
+  title: string;
+  url: string;
+  icon: React.ElementType;
+  isActive: boolean;
+  locked?: boolean;
+}
 
 const data = {
   navMain: [
     {
-      title: "Navigation",
+      title: "Tools",
       items: [
-        {
-          title: "Overview",
-          url: "/",
-          icon: BracketsIcon,
-          isActive: true,
-        },
-        {
-          title: "Laboratory",
-          url: "/laboratory",
-          icon: AtomIcon,
-          isActive: false,
-        },
-        {
-          title: "System",
-          url: "/system",
-          icon: ProcessorIcon,
-          isActive: false,
-        },
-        {
-          title: "Services",
-          url: "/service",
-          icon: CuteRobotIcon,
-          isActive: false,
-        },
-        {
-          title: "Communication",
-          url: "/communication",
-          icon: EmailIcon,
-          isActive: false,
-        },
-        {
-          title: "Kanban",
-          url: "/kanban",
-          icon: GearIcon,
-          isActive: false,
-        },
-        {
-          title: "Companies",
-          url: "/company",
-          icon: BuildingIcon,
-          isActive: false,
-        },
-        {
-          title: "Hermes Chat",
-          url: "/hermes-chat",
-          icon: EmailIcon,
-          isActive: false,
-        },
-
-        {
-          title: "9Router",
-          url: "/9router",
-          icon: BracketsIcon,
-          isActive: false,
-        },
-        {
-          title: "Claude",
-          url: "/claude",
-          icon: CuteRobotIcon,
-          isActive: false,
-        },
-        {
-          title: "Topology",
-          url: "/topology",
-          icon: GearIcon,
-          isActive: false,
-        },
-        {
-          title: "Workflows",
-          url: "/workflows",
-          icon: GearIcon,
-          isActive: false,
-        },
-        {
-          title: "Codex Web",
-          url: "/codex-web",
-          icon: BracketsIcon,
-          isActive: false,
-        },
-        {
-          title: "OpenClaude",
-          url: "/openclaude",
-          icon: AtomIcon,
-          isActive: false,
-        },
-        {
-          title: "Admin Settings",
-          url: "/admin",
-          icon: GearIcon,
-          isActive: false,
-          locked: true,
-        },
+        { title: "Overview", url: "/", icon: BracketsIcon, isActive: false } as NavItem,
+        { title: "Laboratory", url: "/laboratory", icon: AtomIcon, isActive: false } as NavItem,
+        { title: "Showcase", url: "/showcase", icon: Sparkles, isActive: false } as NavItem,
+        { title: "Dashboard Config", url: "/dashboard-config", icon: GearIcon, isActive: false } as NavItem,
+      ],
+    },
+    {
+      title: "Company",
+      items: [
+        { title: "Board Room", url: "/company", icon: BuildingIcon, isActive: false } as NavItem,
+        { title: "Org Chart", url: "/company/org-chart", icon: LayoutLeftIcon, isActive: false } as NavItem,
+        { title: "Strategy", url: "/company/strategy", icon: Target, isActive: false } as NavItem,
+        { title: "Budget", url: "/company/budget", icon: DollarSign, isActive: false } as NavItem,
+        { title: "Hire Agent", url: "/company/hire", icon: PlusIcon, isActive: false } as NavItem,
+      ],
+    },
+    {
+      title: "Orchestration",
+      items: [
+        { title: "Orchestrator", url: "/orchestrator", icon: LayoutLeftIcon, isActive: false } as NavItem,
+        { title: "Kanban", url: "/kanban", icon: LayoutLeftIcon, isActive: false } as NavItem,
+        { title: "Tasks", url: "/tasks", icon: BracketsIcon, isActive: false } as NavItem,
+        { title: "Reports", url: "/reports", icon: ShieldIcon, isActive: false } as NavItem,
+        { title: "Skills", url: "/skills", icon: CuteRobotIcon, isActive: false } as NavItem,
+        { title: "Memory Graph", url: "/memory-graph", icon: AtomIcon, isActive: false } as NavItem,
+      ],
+    },
+    {
+      title: "System",
+      items: [
+        { title: "Services", url: "/service", icon: BracketsIcon, isActive: false } as NavItem,
+        { title: "System", url: "/system", icon: AtomIcon, isActive: false } as NavItem,
+        { title: "Webhooks", url: "/webhooks", icon: GitBranchIcon, isActive: false } as NavItem,
+        { title: "Cloud Sync", url: "/cloud", icon: CloudIcon, isActive: false } as NavItem,
+        { title: "Activity", url: "/activity", icon: ActivityIcon, isActive: false } as NavItem,
+        { title: "Scheduler", url: "/scheduler", icon: CalendarIcon, isActive: false } as NavItem,
+        { title: "Templates", url: "/templates", icon: BookTemplateIcon, isActive: false } as NavItem,
+        { title: "Terminal", url: "/terminal", icon: TerminalIcon, isActive: false } as NavItem,
+        { title: "Wireflow", url: "/wireflow", icon: AtomIcon, isActive: false } as NavItem,
+        { title: "Memory Hub", url: "/memory", icon: CuteRobotIcon, isActive: false } as NavItem,
+        { title: "Topology", url: "/topology", icon: LayoutLeftIcon, isActive: false } as NavItem,
+        { title: "Processes", url: "/processes", icon: GearIcon, isActive: false } as NavItem,
+        { title: "Network", url: "/network", icon: BracketsIcon, isActive: false } as NavItem,
+        { title: "Workflows", url: "/workflows", icon: AtomIcon, isActive: false } as NavItem,
+      ],
+    },
+    {
+      title: "Agents",
+      items: [
+        { title: "Claude", url: "/claude", icon: CuteRobotIcon, isActive: false } as NavItem,
+        { title: "Claude Code", url: "/claude-code", icon: BracketsIcon, isActive: false } as NavItem,
+        { title: "Claude Chat", url: "/claude-chat", icon: BracketsIcon, isActive: false } as NavItem,
+        { title: "Hermes", url: "/hermes", icon: AtomIcon, isActive: false } as NavItem,
+        { title: "Hermes Chat", url: "/hermes-chat", icon: BracketsIcon, isActive: false } as NavItem,
+        { title: "9Router", url: "/9router", icon: BracketsIcon, isActive: false } as NavItem,
+        { title: "Teams", url: "/teams", icon: BuildingIcon, isActive: false } as NavItem,
+        { title: "Codex Web", url: "/codex-web", icon: BracketsIcon, isActive: false } as NavItem,
       ],
     },
   ],
-  desktop: {
-    title: "ZES OS",
-    status: "online",
-  },
   user: {
     name: "ZES ADMIN",
     email: "admin@zes.local",
@@ -148,7 +125,6 @@ const data = {
   },
 };
 
-// Compute active state from pathname
 function useActiveNav() {
   const pathname = usePathname();
   return pathname;
@@ -161,7 +137,6 @@ export function DashboardSidebar({
   const isV0 = useIsV0();
   const activePath = useActiveNav();
 
-  // Update nav items isActive based on pathname
   const navWithActive = data.navMain.map((group) => ({
     ...group,
     items: group.items.map((item) => ({
@@ -172,21 +147,26 @@ export function DashboardSidebar({
 
   return (
     <Sidebar {...props} className={cn("py-sides", className)}>
-      <SidebarHeader className="rounded-t-lg flex gap-3 flex-row rounded-b-none">
-        <div className="flex overflow-clip size-12 shrink-0 items-center justify-center rounded bg-sidebar-primary-foreground/10 transition-colors group-hover:bg-sidebar-primary text-sidebar-primary-foreground">
-          <ZesIcon className="size-10 group-hover:scale-[1.7] origin-top-left transition-transform" />
+      <SidebarHeader className="flex gap-3 flex-row items-center px-4 py-3">
+        <div className="bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-[5px] p-[2.5px] shrink-0">
+          <div className="bg-black rounded-[2px] w-7 h-7 flex items-center justify-center">
+            <span className="text-white font-extrabold text-sm">Z</span>
+          </div>
         </div>
         <div className="grid flex-1 text-left text-sm leading-tight">
-          <span className="text-2xl font-display">ZES OS</span>
-          <span className="text-xs uppercase">Zero Entropy System</span>
+          <span className="text-base font-bold tracking-wide bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">ZES</span>
+          <span className="text-[9px] uppercase tracking-widest text-muted-foreground/60">Orchestration System</span>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
         {navWithActive.map((group, i) => (
           <SidebarGroup
-            className={cn(i === 0 && "rounded-t-none")}
             key={group.title}
+            className={cn(
+              "bg-sidebar rounded-lg ring-2 ring-sidebar-foreground/[0.025]",
+              i > 0 && "rounded-t-none"
+            )}
           >
             <SidebarGroupLabel>
               <Bullet className="mr-2" />
@@ -208,7 +188,7 @@ export function DashboardSidebar({
                       isActive={item.isActive}
                       disabled={item.locked}
                       className={cn(
-                        "disabled:cursor-not-allowed",
+                        "disabled:cursor-not-allowed h-11 text-sm uppercase",
                         item.locked && "pointer-events-none"
                       )}
                     >
@@ -237,42 +217,64 @@ export function DashboardSidebar({
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/20">
-        <Popover>
-          <PopoverTrigger asChild>
-            <button className="flex items-center gap-2 w-full p-2 rounded hover:bg-sidebar-accent transition-colors">
-              <div className="size-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center">
-                <Image
-                  src={data.user.avatar}
-                  alt={data.user.name}
-                  width={32}
-                  height={32}
-                  className="size-8 rounded-full object-cover"
-                />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{data.user.name}</span>
-                <span className="truncate text-xs text-sidebar-foreground/50">
-                  {data.user.email}
-                </span>
-              </div>
-              <DotsVerticalIcon className="size-4 ml-auto text-sidebar-foreground/30" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56" align="end">
-            <div className="grid gap-1">
-              <div className="flex items-center gap-2 px-2 py-1.5">
-                <Bullet variant="success" />
-                <span className="text-sm">
-                  {data.desktop.status === "online"
-                    ? "ZES OS Online"
-                    : "Offline"}
-                </span>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
+      <SidebarFooter className="p-0 mt-auto">
+        <SidebarGroup>
+          <SidebarGroupLabel>
+            <Bullet className="mr-2" />
+            User
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <Popover>
+                  <PopoverTrigger className="flex gap-0.5 w-full group cursor-pointer">
+                    <div className="shrink-0 flex size-14 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground overflow-clip">
+                      <Image
+                        src={data.user.avatar}
+                        alt={data.user.name}
+                        width={120}
+                        height={120}
+                      />
+                    </div>
+                    <div className="group/item pl-3 pr-1.5 pt-2 pb-1.5 flex-1 flex bg-sidebar-accent hover:bg-sidebar-accent-active/75 items-center rounded group-data-[state=open]:bg-sidebar-accent-active group-data-[state=open]:hover:bg-sidebar-accent-active group-data-[state=open]:text-sidebar-accent-foreground">
+                      <div className="grid flex-1 text-left text-sm leading-tight">
+                        <span className="truncate text-xl font-display">
+                          {data.user.name}
+                        </span>
+                        <span className="truncate text-xs uppercase opacity-50 group-hover/item:opacity-100">
+                          {data.user.email}
+                        </span>
+                      </div>
+                      <DotsVerticalIcon className="ml-auto size-4" />
+                    </div>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-56 p-0"
+                    side="bottom"
+                    align="end"
+                    sideOffset={4}
+                  >
+                    <div className="flex flex-col">
+                      <button className="flex items-center px-4 py-2 text-sm hover:bg-accent">
+                        <MonkeyIcon className="mr-2 h-4 w-4" />
+                        Account
+                      </button>
+                      <button className="flex items-center px-4 py-2 text-sm hover:bg-accent">
+                        <GearIcon className="mr-2 h-4 w-4" />
+                        Settings
+                      </button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarFooter>
+
+      <div className="px-4 py-2 border-t border-border/20">
+        <ThemeToggle />
+      </div>
 
       <SidebarRail />
     </Sidebar>

@@ -64,7 +64,7 @@ export default function OpenClaudePage() {
                 <FlaskConical className="size-6 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-display">OpenClaude</h3>
+                <h2 className="text-lg font-display">OpenClaude</h2>
                 <p className="text-sm text-muted-foreground">AI agent bridge service</p>
               </div>
             </div>
