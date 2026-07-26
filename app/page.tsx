@@ -42,7 +42,7 @@ const taskStatusColor: Record<string, string> = {
 
 export default function DashboardOverview() {
   const router = useRouter();
-  const isVercel = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_VERCEL === 'true';
+  const isVercel = process.env.NEXT_PUBLIC_IS_VERCEL === "true";
   
   useEffect(() => {
     if (isVercel) {

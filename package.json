@@ -15,6 +15,7 @@
     "@emotion/is-prop-valid": "latest",
     "@eslint/eslintrc": "latest",
     "@hookform/resolvers": "^3.10.0",
+    "@next/swc-wasm-nodejs": "^16.2.12",
     "@number-flow/react": "latest",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",

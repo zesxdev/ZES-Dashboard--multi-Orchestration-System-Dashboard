@@ -397,7 +397,7 @@ function MemoryCard({ memory }: { memory: Memory }) {
           ))}
         </div>
         <span className="text-[9px] text-muted-foreground font-mono shrink-0">
-          {memory.source} · {memory.created_at ? new Date(memory.created_at).toLocaleDateString() : ""}
+          {memory.source} · {memory.created_at ? new Date(memory.created_at).toLocaleDateString("en-US") : ""}
         </span>
       </div>
       <p className="text-sm leading-relaxed">{memory.content}</p>

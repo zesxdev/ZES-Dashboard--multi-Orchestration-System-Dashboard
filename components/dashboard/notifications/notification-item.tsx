@@ -27,7 +27,7 @@ export default function NotificationItem({
     } else if (hours < 24) {
       return `${hours}h ago`;
     } else {
-      return date.toLocaleDateString();
+      return date.toLocaleDateString("en-US");
     }
   };
 
