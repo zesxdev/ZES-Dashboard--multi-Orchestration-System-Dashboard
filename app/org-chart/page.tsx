@@ -1,8 +1,6 @@
 "use client";
 
-export const dynamic = 'force-dynamic';
-
-import React, { useState, useEffect, useCallback } from "react";
+import React, { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import DashboardPageLayout from "@/components/dashboard/layout";
 import { Button } from "@/components/ui/button";
@@ -29,128 +27,91 @@ function buildOrgTree(agents: any[]): OrgNode[] {
   return roots;
 }
 
-export default function OrgChartPage() {
+function OrgChartContent() {
   const searchParams = useSearchParams();
-  const companyId = searchParams.get("company");
-  const [nodes, setNodes] = useState<OrgNode[]>([]);
-  const [companyName, setCompanyName] = useState("Org Chart");
+  const [agents, setAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reassignMsg, setReassignMsg] = useState<string | null>(null);
+  const [focusedAgent, setFocusedAgent] = useState(searchParams?.get("agent") || null);
 
-  const fetchOrg = useCallback(async () => {
+  const fetchAgents = useCallback(async () => {
     try {
-      let agents: any[] = [];
-
-      if (companyId) {
-        const res = await fetch(`/api/company/${companyId}`, { signal: AbortSignal.timeout(4000) });
-        if (!res.ok) throw new Error("Company not found");
+      const res = await fetch("/api/agents", { signal: AbortSignal.timeout(5000) });
+      if (res.ok) {
         const data = await res.json();
-        agents = data.agents || [];
-        setCompanyName(data.name || companyId);
-      } else {
-        const res = await fetch("/api/company/roster", { signal: AbortSignal.timeout(4000) });
-        if (!res.ok) throw new Error("Failed to load");
-        const data = await res.json();
-        agents = data.agents || [];
-        setCompanyName(data.company?.name || "ZES System");
+        setAgents(Array.isArray(data) ? data : data.agents || []);
       }
+    } catch { console.warn("Could not fetch agents"); }
+    finally { setLoading(false); }
+  }, []);
 
-      const tree = buildOrgTree(agents);
-      setNodes(tree);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [companyId]);
+  useEffect(() => { fetchAgents(); }, [fetchAgents]);
 
-  useEffect(() => {
-    fetchOrg();
-    const iv = setInterval(fetchOrg, 15000);
-    return () => clearInterval(iv);
-  }, [fetchOrg]);
-
-  const handleReassign = useCallback(async (agentId: string, newParentId: string | null) => {
-    setReassignMsg(`Reassigning ${agentId}…`);
-    try {
-      const res = await fetch("/api/company/roster/reassign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId, newParentId }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        setReassignMsg(`Failed: ${err.error}`);
-        setTimeout(() => setReassignMsg(null), 3000);
-        return;
-      }
-      const data = await res.json();
-      const parentName = data.agent.reportsTo || "root";
-      setReassignMsg(`✓ ${agentId} → ${parentName}`);
-      setTimeout(() => setReassignMsg(null), 2000);
-      // Refresh the org
-      fetchOrg();
-    } catch (e: any) {
-      setReassignMsg(`Error: ${e.message}`);
-      setTimeout(() => setReassignMsg(null), 3000);
-    }
-  }, [fetchOrg]);
+  const tree = buildOrgTree(agents);
 
   return (
     <DashboardPageLayout
       header={{
-        title: companyName,
-        description: nodes.length > 0
-          ? `${nodes.length} root · ${nodes.reduce((s, n) => s + (n.children?.length || 0), 0)} direct reports · drag to reassign`
-          : "Organization hierarchy",
-        icon: companyId ? BuildingIcon : AtomIcon,
-        actions: (
-          <div className="flex items-center gap-2">
-            {reassignMsg && (
-              <Badge variant={reassignMsg.startsWith("✓") ? "secondary" : "outline"} className="text-[9px] transition-all">
-                {reassignMsg.startsWith("✓") ? <CheckCircle2 className="size-2.5 mr-1 inline" /> : null}
-                {reassignMsg}
-              </Badge>
-            )}
-            {companyId && (
-              <Badge variant="outline" className="text-[9px]">
-                {nodes.reduce((sum, n) => sum + 1 + (n.children?.length || 0), 0)} AGENTS
-              </Badge>
-            )}
-            <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={fetchOrg}>
-              REFRESH
-            </Button>
-          </div>
-        ),
+        title: "Organization Chart",
+        description: `${agents.length} agents · ${tree.length} top-level units`,
+        icon: BuildingIcon,
       }}
     >
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="text-sm text-muted-foreground animate-pulse">Loading org chart...</div>
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs">
+            <CheckCircle2 className="size-3 mr-1 text-success" />
+            {agents.filter((a) => a.status === "online" || a.status === "active").length} Online
+          </Badge>
+          <Badge variant="outline" className="text-xs">
+            <AlertTriangle className="size-3 mr-1 text-warning" />
+            {agents.filter((a) => a.status === "idle" || a.status === "busy").length} Busy
+          </Badge>
+          <Badge variant="outline" className="text-xs text-muted-foreground">
+            {agents.filter((a) => a.status === "offline").length} Offline
+          </Badge>
+          <div className="ml-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => { setFocusedAgent(null); fetchAgents(); }}
+            >
+              Refresh
+            </Button>
+          </div>
         </div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <AlertTriangle className="size-8 text-warning" />
-          <p className="text-sm text-muted-foreground">{error}</p>
-          <Button variant="outline" size="sm" onClick={fetchOrg}>RETRY</Button>
-        </div>
-      ) : (
-        <div className="relative">
-          {nodes.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 gap-2">
-              <BuildingIcon className="size-12 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">No agents to display</p>
-              <p className="text-xs text-muted-foreground/70">Hire agents from the Laboratory page</p>
-            </div>
-          )}
+
+        {loading ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <div className="animate-spin size-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-3" />
+            <p className="text-xs">Loading org chart...</p>
+          </div>
+        ) : agents.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <AtomIcon className="size-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-medium">No agents found</p>
+            <p className="text-xs mt-1">Hire agents from the laboratory to build your organization.</p>
+          </div>
+        ) : (
           <OrgChart
-            nodes={nodes}
-            onReassign={handleReassign}
-            onAgentClick={(id) => window.open(`/agents/${id}`, "_blank")}
+            data={tree}
+            focusedAgentId={focusedAgent}
+            onAgentFocus={(id) => setFocusedAgent(id)}
           />
-        </div>
-      )}
+        )}
+      </div>
     </DashboardPageLayout>
+  );
+}
+
+export default function OrgChartPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin size-6 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    }>
+      <OrgChartContent />
+    </Suspense>
   );
 }
