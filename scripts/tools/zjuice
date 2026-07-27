@@ -1,0 +1,83 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# zjuice — TokenJuice-inspired output compressor
+# Compresses verbose tool outputs using BitRouter summarization
+# with fallback to intelligent head+tail truncation.
+# Usage: long-command | zjuice
+#        zjuice < output.txt
+#        zjuice --threshold 5000 < output.txt
+
+VERSION="0.2.0"
+MAX_CHARS=${ZJUICE_THRESHOLD:-4000}
+MAX_LINES=${ZJUICE_MAX_LINES:-150}
+MODEL="${ZJUICE_MODEL:-deepseek/deepseek-v4-flash}"
+TEMP_FILE=$(mktemp)
+trap 'rm -f "$TEMP_FILE"' EXIT
+
+# Read all input
+cat > "$TEMP_FILE"
+RAW_CHARS=$(wc -c < "$TEMP_FILE")
+RAW_LINES=$(wc -l < "$TEMP_FILE")
+
+# Passthrough for small output
+if [ "$RAW_CHARS" -le "$MAX_CHARS" ] && [ "$RAW_LINES" -le "$MAX_LINES" ]; then
+  cat "$TEMP_FILE"
+  echo >&2 "[zjuice] ⊢ passthrough ($RAW_CHARS chars, $RAW_LINES lines)"
+  exit 0
+fi
+
+# Try BitRouter summarization via Python (safe from shell escaping issues)
+COMPRESSED=$(python3 << PYEOF
+import requests, json, sys
+
+try:
+    with open("$TEMP_FILE", "r") as f:
+        raw = f.read()
+
+    # Truncate input to model if too large
+    max_input = 10000
+    input_text = raw[:max_input]
+
+    payload = {
+        "model": "$MODEL",
+        "messages": [
+            {"role": "system", "content": "You are TokenJuice, a compression layer for AI tool outputs. Compress the following output preserving ALL key information: numbers, paths, errors, status messages, file names, and structured data. Remove noise (blank lines, debug fluff, repetitive formatting). Return only the compressed version — no commentary, no markdown wrapping."},
+            {"role": "user", "content": f"Compress this tool output ({len(raw)} chars, {raw.count(chr(10))} lines):\n\n{input_text}"}
+        ],
+        "max_tokens": 2048
+    }
+
+    timeout_sec = max(60, min(300, len(raw) // 200))
+    resp = requests.post("http://127.0.0.1:4356/v1/chat/completions",
+                        json=payload, timeout=timeout_sec)
+    data = resp.json()
+
+    if "choices" in data and len(data["choices"]) > 0:
+        result = data["choices"][0]["message"]["content"]
+        saved = len(raw) - len(result)
+        pct = int((saved * 100) / len(raw)) if len(raw) > 0 else 0
+        print(result)
+        print(f"\n[zjuice] compressed via {payload['model']} ({len(raw)}→{len(result)} chars -{pct}%)", file=sys.stderr)
+    else:
+        print(f"ERROR: {json.dumps(data)[:200]}", file=sys.stderr)
+        sys.exit(1)
+except Exception as e:
+    print(f"API call failed: {e}", file=sys.stderr)
+    sys.exit(1)
+PYEOF
+)
+
+# Check if compression succeeded
+if [ $? -eq 0 ] && [ -n "$COMPRESSED" ] && [ "${#COMPRESSED}" -gt 20 ]; then
+  echo "$COMPRESSED"
+  exit 0
+fi
+
+# Fallback: intelligent head+tail truncation
+head_n=80
+tail_n=40
+echo "=== [zjuice] Compressed ($RAW_CHARS chars, $RAW_LINES lines → head $head_n + tail $tail_n) ==="
+head -n "$head_n" "$TEMP_FILE"
+echo "... [$((RAW_LINES - head_n - tail_n)) lines omitted] ..."
+tail -n "$tail_n" "$TEMP_FILE"
+echo "=== [end compressed] ==="
+echo >&2 "[zjuice] ⊢ truncated ($RAW_CHARS chars → $((head_n + tail_n + 3)) lines)"

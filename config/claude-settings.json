@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(zjuice *)",
+      "Bash(zcontext)",
+      "Bash(zautofetch *)",
+      "Bash(zflow *)",
+      "Bash(zroute *)",
+      "Bash(zloop *)",
+      "Bash(sv status *)"
+    ]
+  },
+  "hooks": {
+    "preSessionStart": {
+      "description": "Run SuperContext briefing before each session",
+      "command": "bash -c 'zcontext --brief 2>/dev/null; echo \"📋 SuperContext loaded\"'"
+    }
+  }
+}

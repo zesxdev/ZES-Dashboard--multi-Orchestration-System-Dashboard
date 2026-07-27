@@ -1,0 +1,264 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# zloop — Subconscious Goal-Advancing Background Loop
+# Reads memory hub, identifies incomplete goals, generates daily summaries,
+# and suggests next actions. Extends the self-improvement pipeline.
+# Inspired by OpenHuman's subconscious background loop.
+# Usage:
+#   zloop                    # one-shot: analyze + suggest
+#   zloop --daemon           # background loop (30 min)
+#   zloop --summary          # just today's summary
+#   zloop --goals            # just goal status
+
+VERSION="0.1.0"
+INTERVAL=${ZLOOP_INTERVAL:-1800}  # 30 min default
+MEMORY_HUB_DB="/data/data/com.termux/files/home/.zes/memory_hub.sqlite"
+SHARED_MEMORY="/data/data/com.termux/files/home/.zes/shared-memory.md"
+ZFLOW_DB="/data/data/com.termux/files/home/.zes/zflow.db"
+LOG_FILE="/data/data/com.termux/files/home/logs/zloop/zloop.log"
+LOCK_FILE="/data/data/com.termux/files/home/.cache/zloop.lock"
+
+mkdir -p "$(dirname "$LOG_FILE")" "$(dirname "$LOCK_FILE")"
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
+
+acquire_lock() {
+  if [ -f "$LOCK_FILE" ]; then
+    local pid; pid=$(cat "$LOCK_FILE" 2>/dev/null)
+    if kill -0 "$pid" 2>/dev/null; then
+      log "⚠ zloop already running (PID $pid)"
+      return 1
+    fi
+    rm -f "$LOCK_FILE"
+  fi
+  echo $$ > "$LOCK_FILE"
+  trap 'rm -f "$LOCK_FILE"' EXIT
+  return 0
+}
+
+# ── Generate a daily briefing/summary ──
+generate_summary() {
+  log "📋 Generating daily summary..."
+
+  python3 << PYEOF
+import sqlite3, time, json
+DB = "$MEMORY_HUB_DB"
+now = int(time.time())
+today_start = now - 86400  # last 24h
+yesterday_start = now - 172800
+
+conn = sqlite3.connect(DB)
+c = conn.cursor()
+
+# Recent activity
+c.execute("SELECT type, COUNT(*) FROM memories WHERE created_at > ? GROUP BY type ORDER BY COUNT(*) DESC", (today_start,))
+today_types = c.fetchall()
+
+c.execute("SELECT source, COUNT(*) FROM memories WHERE created_at > ? GROUP BY source ORDER BY COUNT(*) DESC", (today_start,))
+today_sources = c.fetchall()
+
+# Total stats
+c.execute("SELECT COUNT(*) FROM memories")
+total = c.fetchone()[0]
+
+c.execute("SELECT COUNT(*) FROM memories WHERE created_at > ?", (today_start,))
+today_count = c.fetchone()[0]
+
+c.execute("SELECT COUNT(*) FROM memories WHERE priority='high'")
+high_count = c.fetchone()[0]
+
+# Recent high-priority items
+c.execute("SELECT content, tags, created_at FROM memories WHERE priority='high' ORDER BY created_at DESC LIMIT 3")
+high_items = c.fetchall()
+
+conn.close()
+
+print(f"  Memory Hub: {total} total, {today_count} in last 24h, {high_count} high-priority")
+if today_types:
+    print(f"  Today's activity by type:")
+    for t, n in today_types:
+        print(f"    {t}: {n}")
+if today_sources:
+    print(f"  Sources:")
+    for s, n in today_sources:
+        print(f"    {s}: {n}")
+if high_items:
+    print(f"  Top priorities:")
+    for content, tags, ts in high_items:
+        print(f"    [{time.strftime('%H:%M', time.localtime(ts))}] {content[:100]}...")
+PYEOF
+}
+
+# ── Identify and track incomplete goals ──
+check_goals() {
+  log "🎯 Checking goals..."
+
+  python3 << PYEOF
+import sqlite3, time, json, os
+
+MEMORY_DB = "$MEMORY_HUB_DB"
+ZFLOW_DB = "$ZFLOW_DB"
+
+# Check zflow for incomplete workflows
+if os.path.exists(ZFLOW_DB):
+    conn = sqlite3.connect(ZFLOW_DB)
+    c = conn.cursor()
+    c.execute("SELECT name, status, current_step, total_steps, created_at FROM workflows WHERE status IN ('in_progress', 'pending', 'failed') ORDER BY created_at DESC LIMIT 5")
+    rows = c.fetchall()
+    if rows:
+        print(f"  Incomplete workflows ({len(rows)}):")
+        for name, status, cur, total, ts in rows:
+            icon = '🔄' if status == 'in_progress' else '⏳' if status == 'pending' else '❌'
+            print(f"    {icon} {name}: {cur}/{total} [{status}]")
+            print(f"       Created: {time.strftime('%m-%d %H:%M', time.localtime(ts))}")
+    else:
+        print("  No incomplete workflows")
+    conn.close()
+else:
+    print("  No workflow database yet")
+
+# Check memory hub for goal-related entries
+conn = sqlite3.connect(MEMORY_DB)
+c = conn.cursor()
+c.execute("SELECT content, created_at FROM memories WHERE tags LIKE '%goal%' OR tags LIKE '%todo%' ORDER BY created_at DESC LIMIT 5")
+rows = c.fetchall()
+if rows:
+    print(f"  Goal-related memories ({len(rows)}):")
+    for content, ts in rows:
+        print(f"    [{time.strftime('%m-%d %H:%M', time.localtime(ts))}] {content[:100]}...")
+conn.close()
+PYEOF
+}
+
+# ── Suggest next actions ──
+suggest_actions() {
+  log "💡 Suggesting next actions..."
+
+  python3 << PYEOF
+import sqlite3, time, os, json
+
+MEMORY_DB = "$MEMORY_HUB_DB"
+ZFLOW_DB = "$ZFLOW_DB"
+
+suggestions = []
+
+# 1. Check for failed workflows that need attention
+if os.path.exists(ZFLOW_DB):
+    conn = sqlite3.connect(ZFLOW_DB)
+    c = conn.cursor()
+    c.execute("SELECT name FROM workflows WHERE status='failed' ORDER BY updated_at DESC LIMIT 3")
+    for row in c.fetchall():
+        suggestions.append(f"zflow reset {row[0]} && zflow run {row[0]}  # retry failed workflow")
+    conn.close()
+
+# 2. Check for stale/old patterns needing review
+conn = sqlite3.connect(MEMORY_DB)
+c = conn.cursor()
+c.execute("SELECT COUNT(*) FROM memories WHERE type='metric'")
+metric_count = c.fetchone()[0]
+
+c.execute("SELECT COUNT(*) FROM memories WHERE source='autofetch' OR source='github'")
+auto_count = c.fetchone()[0]
+
+conn.close()
+
+if auto_count > 50:
+    suggestions.append(f"zautofetch  # {auto_count} auto-fetched entries — run eviction")
+
+# 3. System health checks
+suggestions.append("zcontext --brief  # refresh session context")
+suggestions.append("sv status zautofetch  # verify auto-fetch daemon")
+
+# 4. Time-based suggestions
+hour = int(time.strftime('%H'))
+if hour >= 22 or hour <= 5:
+    suggestions.append("zes-memory-bridge export  # end-of-day memory sync")
+elif hour >= 7 and hour <= 9:
+    suggestions.append("zloop --summary  # morning briefing")
+
+print(f"  {len(suggestions)} suggestions:")
+for s in suggestions:
+    print(f"    → {s}")
+PYEOF
+}
+
+# ── Full cycle ──
+run_cycle() {
+  log "🚀 zloop cycle starting..."
+  echo ""
+  generate_summary
+  echo ""
+  check_goals
+  echo ""
+  suggest_actions
+  echo ""
+
+  # Write a memory entry for this cycle
+  local now; now=$(date +%s)
+  local content="zloop cycle at $(date '+%Y-%m-%d %H:%M') — checked memory hub, workflows, and generated suggestions"
+  local hash; hash=$(echo -n "$content$now" | sha256sum | cut -d' ' -f1)
+  python3 << PYEOF
+import sqlite3, time, hashlib
+DB = "$MEMORY_HUB_DB"
+content = "$content"
+h = hashlib.sha256(f"{content}{int(time.time())}".encode()).hexdigest()
+now = int(time.time())
+try:
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    c.execute("""INSERT OR IGNORE INTO memories (hash, type, scope, priority, content, tags, source, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+    (h, 'metric', 'global', 'low', content, 'zloop,cycle,background', 'zloop', now, now))
+    conn.commit()
+    conn.close()
+except: pass
+PYEOF
+
+  # Re-sync
+  if command -v zes-memory-bridge &>/dev/null; then
+    zes-memory-bridge export 2>/dev/null
+  fi
+  log "✅ zloop cycle complete"
+}
+
+# ── Daemon mode ──
+daemon_loop() {
+  log "🔄 zloop daemon starting (interval: ${INTERVAL}s)..."
+  while true; do
+    run_cycle
+    sleep "$INTERVAL"
+  done
+}
+
+# ── Main ──
+case "${1:-cycle}" in
+  cycle|--cycle|-c)
+    acquire_lock && run_cycle
+    ;;
+  daemon|--daemon|-d)
+    mkdir -p "$(dirname "$LOG_FILE")"
+    echo $$ > "$LOCK_FILE"
+    daemon_loop
+    ;;
+  summary|--summary|-s)
+    generate_summary
+    ;;
+  goals|--goals|-g)
+    check_goals
+    ;;
+  suggest|--suggest)
+    suggest_actions
+    ;;
+  --help|-h)
+    echo "zloop v$VERSION — Subconscious Goal-Advancing Loop"
+    echo ""
+    echo "Usage:"
+    echo "  zloop                  Full cycle: summary + goals + suggestions"
+    echo "  zloop --daemon         30-min background loop"
+    echo "  zloop --summary        Just today's summary"
+    echo "  zloop --goals          Just goal status"
+    echo "  zloop --suggest        Just next-action suggestions"
+    ;;
+  *)
+    run_cycle
+    ;;
+esac

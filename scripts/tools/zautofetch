@@ -1,0 +1,186 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# zautofetch — Auto-fetch memory pipeline
+# Inspired by OpenHuman's 20-minute background auto-fetch loop.
+# Fetches GitHub notifications + recent file changes → Memory Hub.
+# Usage: zautofetch              one-shot
+#        zautofetch --daemon     background loop
+
+VERSION="0.2.0"
+INTERVAL=${ZAUTOFETCH_INTERVAL:-1200}
+MEMORY_HUB_DB="/data/data/com.termux/files/home/.zes/memory_hub.sqlite"
+MASTER_ENV="/data/data/com.termux/files/home/.secure-credentials/master.env"
+LOG_FILE="/data/data/com.termux/files/home/logs/zautofetch/zautofetch.log"
+LOCK_FILE="/data/data/com.termux/files/home/.cache/zautofetch.lock"
+MAX_RECORDS=200
+
+mkdir -p "$(dirname "$LOG_FILE")" "$(dirname "$LOCK_FILE")"
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
+
+acquire_lock() {
+  if [ -f "$LOCK_FILE" ]; then
+    local pid; pid=$(cat "$LOCK_FILE" 2>/dev/null)
+    if kill -0 "$pid" 2>/dev/null; then
+      log "⚠ zautofetch already running (PID $pid)"; return 1
+    fi
+    log "⚠ Removing stale lock (PID $pid dead)"
+    rm -f "$LOCK_FILE"
+  fi
+  echo $$ > "$LOCK_FILE"
+  trap 'rm -f "$LOCK_FILE"' EXIT
+  return 0
+}
+
+# ── Insert a memory into the hub ──
+insert_memory() {
+  local content="$1" tags="$2" source="${3:-autofetch}"
+  python3 << PYEOF
+import sqlite3, hashlib, time
+DB = "$MEMORY_HUB_DB"
+content = """$content"""
+h = hashlib.sha256(content.encode()).hexdigest()
+now = int(time.time())
+try:
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    c.execute("""INSERT OR IGNORE INTO memories
+        (hash, type, scope, priority, content, tags, source, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (h, 'fact', 'global', 'low', content, "$tags", "$source", now, now))
+    conn.commit()
+    if c.rowcount > 0:
+        print(f"  + {content[:80]}...")
+    conn.close()
+except Exception as e:
+    print(f"  ! insert error: {e}")
+PYEOF
+}
+
+# ── GitHub fetcher ──
+fetch_github() {
+  # Load token
+  local token=""
+  if [ -f "$MASTER_ENV" ]; then
+    token=$(grep -E '^GITHUB_PAT_ZESXDEV=' "$MASTER_ENV" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+  fi
+  [ -z "$token" ] && token="${GITHUB_PAT_ZESXDEV:-}"
+
+  if [ -z "$token" ]; then
+    log "⚠ GitHub: no GITHUB_PAT_ZESXDEV token"; return 1
+  fi
+
+  log "🔍 GitHub: polling notifications..."
+  local raw
+  raw=$(curl -sf --connect-timeout 15 --max-time 30 \
+    -H "Authorization: token $token" \
+    -H "Accept: application/vnd.github.v3+json" \
+    "https://api.github.com/notifications?per_page=8" 2>/dev/null)
+
+  if [ -z "$raw" ] || [ "$raw" = "[]" ]; then
+    log "ℹ GitHub: no new notifications"
+    return 0
+  fi
+
+  # Parse notifications via Python (safe from bash expansion)
+  echo "$raw" | python3 << 'PYEOF'
+import sys, json, hashlib, time
+try:
+    data = json.load(sys.stdin)
+    for n in data:
+        reason = n.get('reason', 'unknown')
+        subj = n.get('subject', {})
+        title = subj.get('title', '?')
+        stype = subj.get('type', '?')
+        repo = n.get('repository', {}).get('full_name', '?')
+        # Escape for bash pipe
+        content = f"GitHub [{reason}] {repo}: {title} ({stype})"
+        h = hashlib.sha256(content.encode()).hexdigest()
+        tags = f"github,{reason}"
+        print(f"{h}|{content}|{tags}|github")
+except Exception as e:
+    sys.stderr.write(f"parse: {e}\n")
+PYEOF
+  local count=0
+  while IFS='|' read -r h content tags source; do
+    [ -z "$h" ] && continue
+    local now; now=$(date +%s)
+    python3 << PYEOF
+import sqlite3
+DB = "$MEMORY_HUB_DB"
+conn = sqlite3.connect(DB)
+c = conn.cursor()
+c.execute("""INSERT OR IGNORE INTO memories
+    (hash, type, scope, priority, content, tags, source, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+    ("$h", 'fact', 'global', 'low', """$content""", "$tags", "$source", $now, $now))
+conn.commit()
+if c.rowcount > 0:
+    print(f"  + $content")
+conn.close()
+PYEOF
+    count=$((count + 1))
+  done
+  log "✅ GitHub: $count new entries"
+}
+
+# ── Recent file changes ──
+fetch_file_changes() {
+  log "📁 Files: scanning recent changes..."
+  local count=0
+  while IFS= read -r f; do
+    local fname; fname=$(basename "$f")
+    local content="Document updated: $fname"
+    insert_memory "$content" "files,changed" "autofetch"
+    count=$((count + 1))
+  done < <(find ~/Documents/Codex ~/Zes-System/docs -name "*.md" -newer "$MEMORY_HUB_DB" -type f 2>/dev/null | head -5)
+  log "📁 Files: $count change records"
+}
+
+# ── Evict old autofetch records ──
+evict_old() {
+  python3 << PYEOF
+import sqlite3
+DB = "$MEMORY_HUB_DB"
+conn = sqlite3.connect(DB)
+c = conn.cursor()
+c.execute("SELECT COUNT(*) FROM memories WHERE source='autofetch' OR source='github'")
+total = c.fetchone()[0]
+print(f"  autofetch entries: {total}")
+if total > $MAX_RECORDS:
+    excess = total - $MAX_RECORDS
+    c.execute("""DELETE FROM memories WHERE id IN (
+        SELECT id FROM memories WHERE source='autofetch' OR source='github'
+        ORDER BY created_at ASC LIMIT ?
+    )""", (excess,))
+    conn.commit()
+    print(f"  evicted {excess} oldest records")
+conn.close()
+PYEOF
+}
+
+# ── Fetch cycle ──
+fetch_all() {
+  log "🚀 zautofetch cycle..."
+  fetch_github
+  fetch_file_changes
+  evict_old
+  if command -v zes-memory-bridge &>/dev/null; then
+    zes-memory-bridge export 2>/dev/null
+  fi
+  log "✅ zautofetch cycle done"
+}
+
+daemon_loop() {
+  log "🔄 zautofetch daemon starting (interval: ${INTERVAL}s)..."
+  while true; do fetch_all; sleep "$INTERVAL"; done
+}
+
+case "${1:-fetch}" in
+  fetch|--fetch|-f)  acquire_lock && fetch_all ;;
+  daemon|--daemon|-d) echo $$ > "$LOCK_FILE"; daemon_loop ;;
+  --help|-h)
+    echo "zautofetch v$VERSION — Auto-fetch memory pipeline"
+    echo "Usage: zautofetch       one-shot   zautofetch --daemon  background loop"
+    ;;
+  *)  fetch_all ;;
+esac

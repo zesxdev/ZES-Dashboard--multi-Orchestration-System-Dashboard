@@ -1,0 +1,448 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# zflow — Checkpointed durable workflows
+# SQLite-backed multi-step workflow runner that survives restarts.
+# Inspired by OpenHuman's tinyflows/tinyagents.
+# Usage:
+#   zflow init my-workflow          # create a workflow definition
+#   zflow run my-workflow           # execute, resuming if interrupted
+#   zflow status [workflow-id]      # show workflow state
+#   zflow list                      # list all workflows
+#   zflow reset my-workflow         # restart from step 1
+
+VERSION="0.1.0"
+ZFLOW_DB="/data/data/com.termux/files/home/.zes/zflow.db"
+ZFLOW_DIR="/data/data/com.termux/files/home/.zes/workflows"
+LOG_FILE="/data/data/com.termux/files/home/logs/zflow/zflow.log"
+
+mkdir -p "$(dirname "$ZFLOW_DB")" "$ZFLOW_DIR" "$(dirname "$LOG_FILE")"
+
+log() { echo "[$(date '+%H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
+
+# ── Init the database ──
+init_db() {
+  python3 << PYEOF
+import sqlite3, os
+DB = "$ZFLOW_DB"
+os.makedirs(os.path.dirname(DB), exist_ok=True)
+conn = sqlite3.connect(DB)
+c = conn.cursor()
+c.execute("""
+  CREATE TABLE IF NOT EXISTS workflows (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    status TEXT DEFAULT 'pending',
+    current_step INTEGER DEFAULT 0,
+    total_steps INTEGER DEFAULT 0,
+    steps_json TEXT DEFAULT '[]',
+    vars_json TEXT DEFAULT '{}',
+    created_at INTEGER,
+    updated_at INTEGER,
+    completed_at INTEGER
+  )
+""")
+c.execute("""
+  CREATE TABLE IF NOT EXISTS steps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workflow_id TEXT NOT NULL,
+    step_index INTEGER NOT NULL,
+    step_name TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    command TEXT,
+    stdout TEXT,
+    stderr TEXT,
+    exit_code INTEGER,
+    started_at INTEGER,
+    completed_at INTEGER,
+    result_json TEXT,
+    FOREIGN KEY(workflow_id) REFERENCES workflows(id)
+  )
+""")
+c.execute("""
+  CREATE INDEX IF NOT EXISTS idx_steps_wf ON steps(workflow_id, step_index)
+""")
+conn.commit()
+conn.close()
+PYEOF
+}
+
+# ── Initialize a new workflow definition from YAML/script ──
+cmd_init() {
+  local name="${1:-}"
+  [ -z "$name" ] && echo "Usage: zflow init <name> [steps...]" && exit 1
+  shift
+  init_db
+
+  local steps_json description=""
+  if [ $# -eq 0 ]; then
+    # Interactive: create a template
+    cat > "$ZFLOW_DIR/$name.sh" << TEMPLATE
+#!/data/data/com.termux/files/usr/bin/bash
+# zflow workflow: $name
+# Define steps as functions. Return non-zero to fail a step.
+
+step_1_name="Step 1: initialize"
+step_1() {
+  echo "Running step 1..."
+  return 0
+}
+
+step_2_name="Step 2: process"
+step_2() {
+  echo "Running step 2..."
+  return 0
+}
+
+step_3_name="Step 3: finalize"
+step_3() {
+  echo "Running step 3..."
+  return 0
+}
+TEMPLATE
+    chmod +x "$ZFLOW_DIR/$name.sh"
+    echo "Created workflow template: $ZFLOW_DIR/$name.sh"
+    echo "Edit it, then: zflow run $name"
+    exit 0
+  fi
+
+  # Parse inline steps: "name:command"
+  local steps=()
+  local i=0
+  for arg in "$@"; do
+    local sname="${arg%%:*}"
+    local scmd="${arg#*:}"
+    steps[$i]="{\\\"step_index\\\":$i,\\\"step_name\\\":\\\"$sname\\\",\\\"command\\\":\\\"${scmd//\"/\\\\\\\"}\\\"}"
+    i=$((i+1))
+  done
+
+  # Join
+  steps_json=$(IFS=,; echo "${steps[*]}")
+  steps_json="[$steps_json]"
+
+  local ts; ts=$(date +%s)
+  local id; id=$(echo -n "$name-$ts" | sha256sum | cut -c1-12)
+
+  python3 << PYEOF
+import sqlite3, json, time
+DB = "$ZFLOW_DB"
+conn = sqlite3.connect(DB)
+c = conn.cursor()
+steps = json.loads('$steps_json')
+c.execute("""INSERT INTO workflows (id, name, description, total_steps, steps_json, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)""",
+('$id', '$name', '$description', len(steps), json.dumps(steps), int(time.time()), int(time.time())))
+for s in steps:
+    c.execute("""INSERT INTO steps (workflow_id, step_index, step_name, command)
+    VALUES (?, ?, ?, ?)""", ('$id', s['step_index'], s['step_name'], s['command']))
+conn.commit()
+conn.close()
+PYEOF
+  echo "Workflow $name created (ID: $id) with $i steps"
+}
+
+# ── Run a workflow (with resume support) ──
+cmd_run() {
+  local name="${1:-}"
+  [ -z "$name" ] && echo "Usage: zflow run <name>" && exit 1
+  init_db
+
+  # Check if it's a script-based workflow
+  if [ -f "$ZFLOW_DIR/$name.sh" ]; then
+    run_script_workflow "$name"
+    return $?
+  fi
+
+  # DB-based workflow
+  python3 << PYEOF
+import sqlite3, json, time, subprocess, sys, os
+
+DB = "$ZFLOW_DB"
+conn = sqlite3.connect(DB)
+c = conn.cursor()
+
+# Find workflow by name (get latest)
+c.execute("SELECT id, name, current_step, total_steps, steps_json, status FROM workflows WHERE name=? ORDER BY created_at DESC LIMIT 1", ('$name',))
+row = c.fetchone()
+if not row:
+    print(f"Workflow '$name' not found")
+    sys.exit(1)
+
+wf_id, wf_name, current_step, total_steps, steps_json, status = row
+
+if status == 'completed':
+    print(f"✔ Workflow '$wf_name' already completed")
+    sys.exit(0)
+
+steps = json.loads(steps_json)
+print(f"📋 Running workflow: {wf_name} (ID: {wf_id})")
+print(f"   Resume from step {current_step + 1}/{total_steps}")
+
+for idx in range(current_step, total_steps):
+    step = steps[idx]
+    si = step['step_index']
+    sn = step['step_name']
+    cmd = step.get('command', '')
+
+    print(f"   ▶ Step {si+1}/{total_steps}: {sn}")
+    now = int(time.time())
+
+    c.execute("UPDATE steps SET status='running', started_at=? WHERE workflow_id=? AND step_index=?", (now, wf_id, si))
+    conn.commit()
+
+    if cmd:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+        stdout = result.stdout[-1000:] if result.stdout else ''
+        stderr = result.stderr[-1000:] if result.stderr else ''
+        exit_code = result.returncode
+
+        c.execute("""UPDATE steps SET status=?, stdout=?, stderr=?, exit_code=?, completed_at=?
+        WHERE workflow_id=? AND step_index=?""",
+        ('completed' if exit_code == 0 else 'failed', stdout, stderr, exit_code, int(time.time()), wf_id, si))
+
+        if exit_code != 0:
+            c.execute("UPDATE workflows SET status='failed', current_step=?, updated_at=? WHERE id=?", (si, int(time.time()), wf_id))
+            conn.commit()
+            print(f"   ✖ Step {si+1} FAILED (exit: {exit_code})")
+            if stderr: print(f"      Error: {stderr[:200]}")
+            sys.exit(1)
+        print(f"   ✔ Step {si+1} passed")
+    else:
+        c.execute("UPDATE steps SET status='completed', completed_at=? WHERE workflow_id=? AND step_index=?", (int(time.time()), wf_id, si))
+        print(f"   ✔ Step {si+1} (no command)")
+
+    c.execute("UPDATE workflows SET current_step=?, updated_at=? WHERE id=?", (idx + 1, int(time.time()), wf_id))
+    conn.commit()
+
+c.execute("UPDATE workflows SET status='completed', completed_at=?, updated_at=? WHERE id=?", (int(time.time()), int(time.time()), wf_id))
+conn.commit()
+print(f"✅ Workflow '{wf_name}' completed all {total_steps} steps")
+conn.close()
+PYEOF
+}
+
+# ── Script-based workflow runner ──
+run_script_workflow() {
+  local name="$1"
+  local script="$ZFLOW_DIR/$name.sh"
+  source "$script"
+
+  init_db
+
+  # Count steps
+  local steps=()
+  for i in {1..99}; do
+    local sname_var="step_${i}_name"
+    local sfunc="step_${i}"
+    if [ -z "${!sname_var:-}" ] && ! declare -F "$sfunc" &>/dev/null; then
+      break
+    fi
+    steps+=("$i")
+  done
+
+  local total=${#steps[@]}
+  local ts; ts=$(date +%s)
+  local id; id=$(echo -n "$name-$ts" | sha256sum | cut -c1-12)
+
+  if [ "$total" -eq 0 ]; then
+    echo "No steps found in $script"
+    exit 1
+  fi
+
+  log "📋 Workflow: $name ($total steps)"
+
+  # Find resume point from DB
+  local resume=0
+  local existing
+  existing=$(python3 -c "
+import sqlite3
+DB='$ZFLOW_DB'
+conn=sqlite3.connect(DB)
+c=conn.cursor()
+c.execute(\"SELECT current_step, status FROM workflows WHERE name=? ORDER BY created_at DESC LIMIT 1\", ('$name',))
+r=c.fetchone()
+if r and r[1]=='in_progress':
+    print(r[0])
+else:
+    print(0)
+conn.close()
+" 2>/dev/null)
+  [ -n "$existing" ] && [ "$existing" -gt 0 ] && resume=$existing && log "🔄 Resuming from step $((resume + 1))"
+
+  for idx in $(seq $resume $total); do
+    [ "$idx" -eq 0 ] && continue
+    local sname_var="step_${idx}_name"
+    local sfunc="step_${idx}"
+    local sname="${!sname_var:-Step $idx}"
+    local now; now=$(date +%s)
+
+    log "  ▶ $sname"
+    python3 -c "
+import sqlite3, json, time
+DB='$ZFLOW_DB'
+conn=sqlite3.connect(DB)
+c=conn.cursor()
+c.execute(\"\"\"INSERT OR REPLACE INTO workflows (id, name, description, status, current_step, total_steps, steps_json, created_at, updated_at)
+VALUES (?, ?, ?, 'in_progress', ?, ?, ?, ?, ?)\"\"\",
+('$id', '$name', '', $((idx - 1)), $total, json.dumps([{'step_index': $((idx-1)), 'step_name': '$sname'}]), $now, $now))
+c.execute(\"\"\"INSERT OR REPLACE INTO steps (workflow_id, step_index, step_name, status, started_at)
+VALUES (?, ?, ?, 'running', ?)\"\"\", ('$id', $((idx-1)), '$sname', $now))
+conn.commit()
+conn.close()
+" 2>/dev/null
+
+    # Run the step function
+    if "$sfunc" >> "$LOG_FILE" 2>&1; then
+      log "  ✔ $sname"
+      python3 -c "
+import sqlite3, time
+DB='$ZFLOW_DB'
+conn=sqlite3.connect(DB)
+c=conn.cursor()
+c.execute(\"UPDATE steps SET status='completed', exit_code=0, completed_at=? WHERE workflow_id=? AND step_index=?\", (int(time.time()), '$id', $((idx-1))))
+c.execute(\"UPDATE workflows SET current_step=?, updated_at=? WHERE id=?\", ($idx, int(time.time()), '$id'))
+conn.commit()
+conn.close()
+" 2>/dev/null
+    else
+      local ec=$?
+      log "  ✖ $sname FAILED (exit: $ec)"
+      python3 -c "
+import sqlite3, time
+DB='$ZFLOW_DB'
+conn=sqlite3.connect(DB)
+c=conn.cursor()
+c.execute(\"UPDATE steps SET status='failed', exit_code=$ec, completed_at=? WHERE workflow_id=? AND step_index=?\", (int(time.time()), '$id', $((idx-1))))
+c.execute(\"UPDATE workflows SET status='failed', updated_at=? WHERE id=?\", (int(time.time()), '$id'))
+conn.commit()
+conn.close()
+" 2>/dev/null
+      return $ec
+    fi
+  done
+
+  python3 -c "
+import sqlite3, time
+DB='$ZFLOW_DB'
+conn=sqlite3.connect(DB)
+c=conn.cursor()
+c.execute(\"UPDATE workflows SET status='completed', completed_at=?, updated_at=? WHERE id=?\", (int(time.time()), int(time.time()), '$id'))
+conn.commit()
+conn.close()
+" 2>/dev/null
+  log "✅ Workflow $name completed"
+}
+
+# ── List workflows ──
+cmd_list() {
+  init_db
+  python3 << PYEOF
+import sqlite3, time
+DB = "$ZFLOW_DB"
+conn = sqlite3.connect(DB)
+c = conn.cursor()
+c.execute("SELECT id, name, status, current_step, total_steps, created_at, completed_at FROM workflows ORDER BY created_at DESC LIMIT 20")
+rows = c.fetchall()
+if not rows:
+    print("No workflows yet")
+    conn.close()
+    exit(0)
+print(f"{'ID':<14} {'Name':<20} {'Status':<12} {'Steps':<8} {'Created'}")
+print("-" * 70)
+for r in rows:
+    sid, name, status, cur, total, created, completed = r
+    status_icon = {'completed':'✅','in_progress':'🔄','failed':'❌','pending':'⏳'}.get(status, '⏳')
+    steps_str = f"{cur}/{total}" if total else "?"
+    ts = time.strftime('%m-%d %H:%M', time.localtime(created))
+    print(f"{sid:<14} {name:<20} {status_icon} {status:<10} {steps_str:<8} {ts}")
+conn.close()
+PYEOF
+}
+
+# ── Show workflow status ──
+cmd_status() {
+  local name="${1:-}"
+  init_db
+  python3 << PYEOF
+import sqlite3, json, time
+DB = "$ZFLOW_DB"
+conn = sqlite3.connect(DB)
+c = conn.cursor()
+
+wf_filter = "'$name'" if '$name' else "''"
+if '$name':
+    c.execute("SELECT id, name, description, status, current_step, total_steps, created_at, completed_at FROM workflows WHERE name=? ORDER BY created_at DESC LIMIT 1", ('$name',))
+else:
+    c.execute("SELECT id, name, description, status, current_step, total_steps, created_at, completed_at FROM workflows ORDER BY created_at DESC LIMIT 1")
+row = c.fetchone()
+if not row:
+    print("No workflow found")
+    conn.close()
+    exit(1)
+
+wid, name, desc, status, cur, total, created, completed = row
+print(f"📋 Workflow: {name} (ID: {wid})")
+print(f"   Status: {'✅' if status=='completed' else '🔄' if status=='in_progress' else '❌' if status=='failed' else '⏳'} {status}")
+print(f"   Progress: {cur}/{total} steps")
+print(f"   Created: {time.strftime('%Y-%m-%d %H:%M', time.localtime(created))}")
+if completed: print(f"   Completed: {time.strftime('%Y-%m-%d %H:%M', time.localtime(completed))}")
+print("")
+
+c.execute("SELECT step_index, step_name, status, exit_code, started_at, completed_at FROM steps WHERE workflow_id=? ORDER BY step_index", (wid,))
+steps = c.fetchall()
+for s in steps:
+    si, sn, ss, ec, sta, com = s
+    icon = '✅' if ss=='completed' else '🔄' if ss=='running' else '❌' if ss=='failed' else '⏳'
+    ts = time.strftime('%H:%M', time.localtime(sta)) if sta else '--'
+    extra = f" (exit: {ec})" if ec is not None else ""
+    print(f"   {icon} Step {si+1}: {sn} [{ss}]{extra} @ {ts}")
+conn.close()
+PYEOF
+}
+
+# ── Reset a workflow ──
+cmd_reset() {
+  local name="${1:-}"
+  [ -z "$name" ] && echo "Usage: zflow reset <name>" && exit 1
+  init_db
+  python3 << PYEOF
+import sqlite3, time
+DB = "$ZFLOW_DB"
+conn = sqlite3.connect(DB)
+c = conn.cursor()
+c.execute("SELECT id FROM workflows WHERE name=? ORDER BY created_at DESC LIMIT 1", ('$name',))
+row = c.fetchone()
+if not row:
+    print(f"Workflow '$name' not found")
+    conn.close()
+    exit(1)
+wid = row[0]
+c.execute("UPDATE workflows SET status='pending', current_step=0, updated_at=? WHERE id=?", (int(time.time()), wid))
+c.execute("UPDATE steps SET status='pending', stdout=NULL, stderr=NULL, exit_code=NULL, started_at=NULL, completed_at=NULL, result_json=NULL WHERE workflow_id=?", (wid,))
+conn.commit()
+print(f"🔄 Reset workflow '$name' to step 1")
+conn.close()
+PYEOF
+}
+
+# ── Main ──
+case "${1:-help}" in
+  init|create)  shift; cmd_init "$@" ;;
+  run)          shift; cmd_run "$@" ;;
+  list|ls)      cmd_list ;;
+  status|st)    shift; cmd_status "$@" ;;
+  reset)        shift; cmd_reset "$@" ;;
+  *)
+    echo "zflow v$VERSION — Checkpointed Durable Workflows"
+    echo "Usage:"
+    echo "  zflow init <name> [steps...]   Create a workflow"
+    echo "  zflow run <name>               Run (resumes if interrupted)"
+    echo "  zflow list                     List all workflows"
+    echo "  zflow status [name]            Show workflow status"
+    echo "  zflow reset <name>             Reset to step 1"
+    echo ""
+    echo "Script mode:"
+    echo "  zflow init my-workflow          Creates template at ~/.zes/workflows/my-workflow.sh"
+    echo "  # Edit the template, then:"
+    echo "  zflow run my-workflow"
+    ;;
+esac

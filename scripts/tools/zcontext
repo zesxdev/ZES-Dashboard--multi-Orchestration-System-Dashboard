@@ -1,0 +1,158 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# zcontext — SuperContext pre-read sweep
+# Sweeps memory hub and key files before a session starts
+# to eliminate cold starts. Injects context briefing.
+# Usage: zcontext                 # full sweep
+#        zcontext --brief         # just the briefing text
+#        zcontext --refresh       # force rebuild cache
+
+VERSION="0.1.0"
+MEMORY_HUB_DB="/data/data/com.termux/files/home/.zes/memory_hub.sqlite"
+SHARED_MEMORY="/data/data/com.termux/files/home/.zes/shared-memory.md"
+CACHE_FILE="/data/data/com.termux/files/home/.cache/zcontext-briefing.md"
+MAX_RECENT_HOURS=${ZCONTEXT_RECENT:-48}    # entries from last N hours
+MAX_HIGH_PRIORITY=${ZCONTEXT_HIGH:-8}      # how many high-priority to include
+MAX_RECENT=${ZCONTEXT_RECENT_MAX:-12}      # how many recent entries to include
+
+mkdir -p "$(dirname "$CACHE_FILE")"
+
+briefing() {
+  local now
+  now=$(date +%s)
+  local cutoff=$((now - MAX_RECENT_HOURS * 3600))
+
+  cat << HEADER
+╔══════════════════════════════════════════════╗
+║         ZES SuperContext Briefing           ║
+║    $(date '+%Y-%m-%d %H:%M:%S')               ║
+╚══════════════════════════════════════════════╝
+
+HEADER
+
+  # ── 1. Memory hub data ──
+  if [ -f "$MEMORY_HUB_DB" ]; then
+    # Total memory count
+    local total
+    total=$(python3 -c "
+import sqlite3
+conn = sqlite3.connect('$MEMORY_HUB_DB')
+c = conn.cursor()
+c.execute(\"SELECT COUNT(*) FROM memories\")
+print(c.fetchone()[0])
+conn.close()
+" 2>/dev/null || echo "0")
+
+    echo "📚 Memory Hub: $total entries"
+
+    # Type distribution
+    python3 -c "
+import sqlite3
+conn = sqlite3.connect('$MEMORY_HUB_DB')
+c = conn.cursor()
+c.execute(\"SELECT type, COUNT(*) FROM memories GROUP BY type ORDER BY COUNT(*) DESC\")
+for t, n in c.fetchall():
+    print(f'   ├─ {t}: {n}')
+conn.close()
+" 2>/dev/null
+
+    # Recent high-priority entries
+    echo ""
+    echo "🔝 High-Priority ($MAX_HIGH_PRIORITY recent):"
+    python3 -c "
+import sqlite3, time
+conn = sqlite3.connect('$MEMORY_HUB_DB')
+c = conn.cursor()
+c.execute(\"SELECT content, type, tags, created_at, priority FROM memories WHERE priority='high' AND created_at > $cutoff ORDER BY created_at DESC LIMIT $MAX_HIGH_PRIORITY\")
+rows = c.fetchall()
+if not rows:
+    # fallback: show any high priority
+    c.execute(\"SELECT content, type, tags, created_at, priority FROM memories WHERE priority='high' ORDER BY created_at DESC LIMIT $MAX_HIGH_PRIORITY\")
+    rows = c.fetchall()
+for content, mtype, tags, created, prio in rows:
+    preview = content[:100].replace(chr(10), ' ')
+    dt = time.strftime('%m-%d %H:%M', time.localtime(created))
+    print(f'   [{dt}] {preview}...')
+    print(f'         type={mtype} tags=[{tags}]')
+conn.close()
+" 2>/dev/null
+
+    # Very recent entries (last 24h)
+    local day_cutoff=$((now - 86400))
+    echo ""
+    echo "🆕 Last 24h entries:"
+    python3 -c "
+import sqlite3, time
+conn = sqlite3.connect('$MEMORY_HUB_DB')
+c = conn.cursor()
+c.execute(\"SELECT content, type, source, created_at FROM memories WHERE created_at > $day_cutoff ORDER BY created_at DESC LIMIT 8\")
+rows = c.fetchall()
+if not rows:
+    # fall back to most recent regardless
+    c.execute(\"SELECT content, type, source, created_at FROM memories ORDER BY created_at DESC LIMIT 8\")
+    rows = c.fetchall()
+for content, mtype, source, created in rows:
+    preview = content[:120].replace(chr(10), ' ')
+    dt = time.strftime('%m-%d %H:%M', time.localtime(created))
+    print(f'   [{dt}] [{source}] {preview}...')
+conn.close()
+" 2>/dev/null
+  else
+    echo "⚠️  Memory Hub not found at $MEMORY_HUB_DB"
+  fi
+
+  # ── 2. Running services ──
+  echo ""
+  echo "⚡ Service Status:"
+  for svc in bitrouter tor cloudflared postgres zes-dashboard claude-proxy zes-memory-sync; do
+    if sv status "$svc" 2>/dev/null | grep -q "run:"; then
+      echo "   ✅ $svc"
+    else
+      echo "   ⚪ $svc (stopped)"
+    fi
+  done
+
+  # ── 3. Recent system logs (last 10 lines each, errors/warnings) ──
+  echo ""
+  echo "📋 Recent log activity (errors/warnings from key services):"
+  for logdir in hermes bitrouter; do
+    local logfile="/data/data/com.termux/files/home/logs/${logdir}/${logdir}.log"
+    if [ -f "$logfile" ]; then
+      local errors
+      errors=$(grep -iE '(error|traceback|exception|fail|warn)' "$logfile" 2>/dev/null | tail -5)
+      if [ -n "$errors" ]; then
+        echo "   [$logdir]"
+        echo "$errors" | sed 's/^/     → /'
+      fi
+    fi
+  done
+
+  # ── 4. Disk / Resource warning ──
+  local avail
+  avail=$(df -h /data/data/com.termux/files/home 2>/dev/null | awk 'NR==2{print $4}')
+  local mem_pct
+  mem_pct=$(free 2>/dev/null | awk '/Mem:/{printf "%.0f", $3/$2 * 100}')
+  echo ""
+  echo "💾 Resources: Disk free: ${avail:-?}, RAM: ${mem_pct:-?}% used"
+}
+
+case "${1:-full}" in
+  --brief|-b)
+    briefing
+    ;;
+  --refresh|-r)
+    briefing > "$CACHE_FILE"
+    echo "Briefing cached to $CACHE_FILE"
+    ;;
+  --help|-h)
+    echo "zcontext v$VERSION — SuperContext pre-read sweep"
+    echo ""
+    echo "Usage:"
+    echo "  zcontext          Full briefing to stdout"
+    echo "  zcontext --brief  Briefing text (for CLAUDE.md instructions)"
+    echo "  zcontext --refresh  Rebuild cache file"
+    echo "  zcontext --help   This message"
+    ;;
+  *)
+    briefing
+    ;;
+esac

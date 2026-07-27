@@ -1,0 +1,224 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# zroute — Intelligent model router per workload
+# Routes tasks to the optimal BitRouter model based on task type.
+# Inspired by OpenHuman's model routing.
+# Usage:
+#   zroute "code review"          # prints: anthropic/claude-fable-5
+#   zroute "quick search"         # prints: deepseek/deepseek-v4-flash
+#   zroute --list                 # show all routes
+#   zroute --test                 # test all routes
+
+VERSION="0.1.0"
+BITROUTER="http://127.0.0.1:4356/v1/chat/completions"
+
+# ── Routing table ──
+# Format: task_pattern | model | description
+ROUTES=(
+  "code review|codes review|audit|security review|vulnerability|bug hunt"
+  "anthropic/claude-fable-5|Deep reasoning, best for thorough code review"
+  "architecture|design|plan|refactor|complex"
+  "anthropic/claude-opus-4.8|Strongest reasoning, architecture decisions"
+  "quick search|lookup|find|grep|simple q"
+  "deepseek/deepseek-v4-flash|Fastest, cheapest for simple queries"
+  "research|deep research|investigate|analyze"
+  "qwen/qwen3.6-plus|Excellent research, long context"
+  "chat|conversation|help|explain"
+  "anthropic/claude-sonnet-5|Balanced chat + reasoning"
+  "write|generate|create|draft|compose"
+  "anthropic/claude-haiku-4.5|Fast generation, good quality"
+  "debug|fix|error|traceback|crash"
+  "anthropic/claude-sonnet-5|Great debugging with reasoning"
+  "image|vision|visual|screenshot|png|jpg"
+  "x-ai/grok-4.5|Vision-capable, multimodal"
+  "data|json|yaml|transform|parse|convert"
+  "qwen/qwen3.6-flash|Fast structured data processing"
+  "memory|store|recall|remember"
+  "minimax/minimax-m3|Good memory/context tasks"
+  "math|calculate|numeric|stats|statistics"
+  "anthropic/claude-opus-4.8|Best at math and reasoning"
+  "sql|database|query|table"
+  "z-ai/glm-5.1|Strong SQL and structured queries"
+  "code|programming|implement|function|script"
+  "anthropic/claude-fable-5|Best for coding tasks"
+  "file|filesystem|directory|ls|find"
+  "deepseek/deepseek-v4-flash|Fast file operations"
+  "summary|summarize|tl;dr|brief"
+  "moonshotai/kimi-k2.7-code|Fast summarization"
+)
+
+# ── Default fallbacks ──
+DEFAULT_MODEL="anthropic/claude-sonnet-5"
+DEFAULT_CHEAP="deepseek/deepseek-v4-flash"
+
+list_routes() {
+  echo "╔══════════════════════════════════════════════════════╗"
+  echo "║          zroute — Model Routing Table              ║"
+  echo "╚══════════════════════════════════════════════════════╝"
+  echo ""
+
+  local i=0
+  while [ $i -lt ${#ROUTES[@]} ]; do
+    local patterns="${ROUTES[$i]}"
+    local model_info="${ROUTES[$((i+1))]}"
+    local model="${model_info%%|*}"
+    local desc="${model_info#*|}"
+    echo "  📌 $model"
+    echo "     $desc"
+    echo "     Patterns: $(echo $patterns | tr '|' ', ')"
+    echo ""
+    i=$((i+2))
+  done
+
+  echo "  Default: $DEFAULT_MODEL"
+  echo "  Cheap:   $DEFAULT_CHEAP"
+}
+
+test_route() {
+  local task="$1"
+  local result; result=$(route "$task")
+  echo "  $task → $result"
+}
+
+route() {
+  local task="${1,,}"  # lowercase
+  [ -z "$task" ] && echo "$DEFAULT_MODEL" && return 0
+
+  local i=0
+  while [ $i -lt ${#ROUTES[@]} ]; do
+    local patterns="${ROUTES[$i]}"
+    local model_info="${ROUTES[$((i+1))]}"
+    local model="${model_info%%|*}"
+
+    # Split patterns and check each
+    IFS='|' read -ra PATS <<< "$patterns"
+    for pat in "${PATS[@]}"; do
+      pat="${pat,,}"
+      # Check if task contains the pattern
+      if echo "$task" | grep -qi "$pat" 2>/dev/null; then
+        echo "$model"
+        return 0
+      fi
+    done
+    i=$((i+2))
+  done
+
+  # Check for cheap keywords
+  if echo "$task" | grep -qiE '^(ls|cat|echo|pwd|find|grep|list|simple|quick|fast)'; then
+    echo "$DEFAULT_CHEAP"
+    return 0
+  fi
+
+  echo "$DEFAULT_MODEL"
+}
+
+test_all() {
+  echo "╔════════════════════════════════════════════╗"
+  echo "║        zroute — Route Test Suite          ║"
+  echo "╚════════════════════════════════════════════╝"
+
+  local tests=(
+    "code review this PR"
+    "design the new architecture"
+    "quick search for files"
+    "deep research on quantum computing"
+    "help me understand this"
+    "write a README"
+    "debug this crash"
+    "describe this image"
+    "parse this JSON data"
+    "remember this fact"
+    "calculate statistics"
+    "query the database"
+    "implement fibonacci"
+    "list directory contents"
+    "summarize this article"
+    "fix the build error"
+    "whats the weather"
+    "explain how zflow works"
+  )
+
+  for test in "${tests[@]}"; do
+    local model; model=$(route "$test")
+    printf "  %-40s → %s\n" "$test" "$model"
+  done
+  printf "\n  %-40s → %s\n" "(default)" "$DEFAULT_MODEL"
+  printf "  %-40s → %s\n" "(cheap fallback)" "$DEFAULT_CHEAP"
+}
+
+# ── Call model directly with routing ──
+call_model() {
+  local task="$1"
+  local prompt="${2:-}"
+  local model; model=$(route "$task")
+
+  if [ -z "$prompt" ]; then
+    # Just return the model name
+    echo "$model"
+    return 0
+  fi
+
+  # Make the API call
+  curl -sf --connect-timeout 10 --max-time 120 \
+    -H "Content-Type: application/json" \
+    -d "$(cat <<EOF
+{
+  "model": "$model",
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant. Be concise and accurate."},
+    {"role": "user", "content": "$prompt"}
+  ],
+  "max_tokens": 1024
+}
+EOF
+)" \
+    "$BITROUTER" 2>/dev/null | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(d['choices'][0]['message']['content'])
+except: pass
+" 2>/dev/null
+}
+
+# ── Show stats about models ──
+show_stats() {
+  echo "📊 BitRouter Model Stats"
+  curl -sf http://127.0.0.1:4356/v1/models 2>/dev/null | python3 -c "
+import sys, json
+models = json.load(sys.stdin)['data']
+cats = {}
+for m in models:
+    prefix = m['id'].split('/')[0]
+    cats[prefix] = cats.get(prefix, 0) + 1
+print(f'  Total models: {len(models)}')
+print(f'  By provider:')
+for p in sorted(cats):
+    print(f'    {p}: {cats[p]}')
+" 2>/dev/null || echo "  BitRouter not reachable"
+}
+
+# ── Main ──
+case "${1:-help}" in
+  --list|-l)          list_routes ;;
+  --test|-t)          test_all ;;
+  --stats|--models)   show_stats ;;
+  --call|call)        shift; call_model "$@" ;;
+  help|--help|-h)
+    echo "zroute v$VERSION — Intelligent Model Router"
+    echo ""
+    echo "Usage:"
+    echo "  zroute <task description>    Print the best model for the task"
+    echo "  zroute --list                Show routing table"
+    echo "  zroute --test                Run test suite"
+    echo "  zroute --stats               Show BitRouter model stats"
+    echo "  zroute call <task> <prompt>  Route + call the model directly"
+    echo ""
+    echo "Examples:"
+    echo "  zroute \"code review this PR\"           → anthropic/claude-fable-5"
+    echo "  zroute \"quick search for files\"         → deepseek/deepseek-v4-flash"
+    echo "  zroute call \"explain\" \"How does X work?\" → calls routed model"
+    ;;
+  *)
+    route "$*"
+    ;;
+esac
