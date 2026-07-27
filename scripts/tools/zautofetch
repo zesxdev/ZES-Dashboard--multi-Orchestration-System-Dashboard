@@ -56,25 +56,19 @@ except Exception as e:
 PYEOF
 }
 
-# ── GitHub fetcher ──
+# ── GitHub fetcher (via gh CLI) ──
 fetch_github() {
-  # Load token
-  local token=""
-  if [ -f "$MASTER_ENV" ]; then
-    token=$(grep -E '^GITHUB_PAT_ZESXDEV=' "$MASTER_ENV" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+  if ! command -v gh &>/dev/null; then
+    log "⚠ GitHub: gh CLI not installed"; return 1
   fi
-  [ -z "$token" ] && token="${GITHUB_PAT_ZESXDEV:-}"
 
-  if [ -z "$token" ]; then
-    log "⚠ GitHub: no GITHUB_PAT_ZESXDEV token"; return 1
+  if ! gh auth status 2>/dev/null | grep -q "Active account"; then
+    log "⚠ GitHub: gh CLI not authenticated"; return 1
   fi
 
   log "🔍 GitHub: polling notifications..."
   local raw
-  raw=$(curl -sf --connect-timeout 15 --max-time 30 \
-    -H "Authorization: token $token" \
-    -H "Accept: application/vnd.github.v3+json" \
-    "https://api.github.com/notifications?per_page=8" 2>/dev/null)
+  raw=$(gh api notifications --jq '.' 2>/dev/null)
 
   if [ -z "$raw" ] || [ "$raw" = "[]" ]; then
     log "ℹ GitHub: no new notifications"

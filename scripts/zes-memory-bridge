@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""ZES Memory Bridge — syncs Memory Hub ↔ Codex ↔ Claude Code.
+
+Export:  SQLite → shared_memory.md (flat file for Codex/Claude)
+Import:  Codex raw_memories.md → SQLite
+Status:  Show all shared memories and counts
+"""
+import os, sys, json, argparse
+os.environ.setdefault("HERMES_HOME", os.path.expanduser("~/.hermes/profiles/hermes_zes"))
+sys.path.insert(0, os.path.expanduser('~/hermes-agent'))
+from plugins.memory.zes_memory.store import MemoryStore
+
+HOME = os.path.expanduser('~')
+DB_PATH = os.path.join(HOME, '.zes', 'memory_hub.sqlite')
+SHARED_MD = os.path.join(HOME, '.zes', 'shared-memory.md')
+CODEX_RAW = os.path.join(HOME, '.codex', 'memories', 'raw_memories.md')
+
+store = MemoryStore(DB_PATH)
+
+def cmd_export():
+    """Export global-scope memories to shared-memory.md + Codex's raw_memories.md."""
+    store.initialize()
+    memories = store.list_by_scope('global', limit=100)
+    lines = ["# ZES Shared Memory — Cross-Agent Knowledge Base",
+             f"# Generated: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M')}",
+             f"# {len(memories)} shared facts across {len(set(m['type'] for m in memories))} types",
+             ""]
+    for m in sorted(memories, key=lambda x: x['updated_at'], reverse=True):
+        lines.append(f"- [{m['type']}] {m['content']}")
+        if m['tags']:
+            lines.append(f"  tags: {m['tags']}")
+        lines.append("")
+    md_content = '\n'.join(lines)
+    # Write to shared-memory.md
+    os.makedirs(os.path.dirname(SHARED_MD), exist_ok=True)
+    with open(SHARED_MD, 'w') as f:
+        f.write(md_content)
+    print(f"✓ Exported {len(memories)} memories to {SHARED_MD}")
+    # Also write to Codex's raw_memories.md so Codex sees it
+    os.makedirs(os.path.dirname(CODEX_RAW), exist_ok=True)
+    with open(CODEX_RAW, 'w') as f:
+        f.write(md_content)
+    print(f"  → Copied to Codex: {CODEX_RAW}")
+    store.shutdown()
+
+def cmd_import_codex():
+    """Import new facts from Codex's raw_memories.md into Memory Hub."""
+    if not os.path.exists(CODEX_RAW):
+        print(f"! No Codex memory file at {CODEX_RAW}")
+        return
+    store.initialize()
+    with open(CODEX_RAW) as f:
+        content = f.read().strip()
+    if not content or content == "# Raw Memories\n\nNo raw memories yet.":
+        print("! Codex raw_memories.md is empty, nothing to import")
+        store.shutdown()
+        return
+    # Parse markdown lines into facts
+    lines = content.split('\n')
+    imported = 0
+    for line in lines:
+        line = line.strip()
+        if line.startswith('- ') and len(line) > 2:
+            fact = line[2:].strip()
+            if fact and len(fact) > 10:
+                is_new, h = store.insert({
+                    "content": fact,
+                    "type": "fact",
+                    "scope": "global",
+                    "source": "codex",
+                    "tags": "codex,shared"
+                })
+                if is_new:
+                    imported += 1
+    print(f"✓ Imported {imported} new facts from Codex to Memory Hub")
+    print(f"  Total in hub: {store.count()}")
+    store.shutdown()
+
+def cmd_status():
+    """Show bridge status — counts and latest memories."""
+    store.initialize()
+    stats = store.get_stats()
+    print(f"Memory Hub: {'✓ healthy' if stats['healthy'] else '✗ dead'}")
+    print(f"  Total: {stats['total']}")
+    print(f"  By type: {stats.get('by_type', {})}")
+    print(f"  By scope: {stats.get('by_scope', {})}")
+    print(f"  DB: {stats.get('db_path', '?')}")
+    print()
+    codex_exists = os.path.exists(CODEX_RAW)
+    print(f"Codex raw_memories.md: {'✓ exists' if codex_exists else '✗ not found'}")
+    if codex_exists:
+        with open(CODEX_RAW) as f:
+            c = f.read().strip()
+        print(f"  Size: {len(c)} chars")
+    shared_exists = os.path.exists(SHARED_MD)
+    print(f"Shared memory.md: {'✓ exists' if shared_exists else '✗ not found'}")
+    if shared_exists:
+        with open(SHARED_MD) as f:
+            c = f.read().strip()
+        print(f"  Size: {len(c)} chars, lines: {c.count(chr(10)) + 1}")
+    print()
+    # Show latest global memories
+    print("Latest shared memories:")
+    for m in store.list_by_scope('global', limit=5):
+        dt = __import__('datetime').datetime.fromtimestamp(m['updated_at']).strftime('%m/%d %H:%M')
+        print(f"  [{m['source']:7}] {m['content'][:70]}...")
+    store.shutdown()
+
+def cmd_cron():
+    """Run full sync cycle — export then import."""
+    cmd_export()
+    cmd_import_codex()
+    print("✓ Bridge sync complete")
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='ZES Memory Bridge')
+    parser.add_argument('action', nargs='?', default='status',
+                        choices=['export', 'import', 'status', 'cron'])
+    args = parser.parse_args()
+    {'export': cmd_export, 'import': cmd_import_codex,
+     'status': cmd_status, 'cron': cmd_cron}[args.action]()

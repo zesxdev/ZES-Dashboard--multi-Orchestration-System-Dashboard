@@ -1,0 +1,234 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# ztree — Memory Tree Exporter
+# Exports the Memory Hub as browsable Markdown files organized by type.
+# Like OpenHuman's Obsidian vault — human-readable, editable, browseable.
+# Usage:
+#   ztree                      # export to default dir (~/.zes/tree/)
+#   ztree --dir ~/memory-vault # export to custom dir
+#   ztree --watch              # watch mode (auto-refresh every 5 min)
+#   ztree --stats              # show tree stats
+
+VERSION="0.1.0"
+MEMORY_DB="/data/data/com.termux/files/home/.zes/memory_hub.sqlite"
+TREE_DIR="${ZTREE_DIR:-/data/data/com.termux/files/home/.zes/tree}"
+LOG_FILE="/data/data/com.termux/files/home/logs/ztree/ztree.log"
+WATCH_INTERVAL=300
+
+mkdir -p "$TREE_DIR" "$(dirname "$LOG_FILE")"
+
+log() { echo "[$(date '+%H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
+
+# ── Build the markdown tree from the hub ──
+build_tree() {
+  local tree_dir="${1:-$TREE_DIR}"
+  mkdir -p "$tree_dir"
+
+  log "🌳 Building memory tree at $tree_dir..."
+
+  # Check if DB exists
+  if [ ! -f "$MEMORY_DB" ]; then
+    log "✖ Memory hub not found at $MEMORY_DB"
+    return 1
+  fi
+
+  python3 << PYEOF
+import sqlite3, time, os, json
+
+DB = "$MEMORY_DB"
+TREE = "$tree_dir"
+
+conn = sqlite3.connect(DB)
+c = conn.cursor()
+
+# ── Overview index ──
+c.execute("SELECT COUNT(*), COUNT(DISTINCT type), COUNT(DISTINCT source) FROM memories")
+total, types, sources = c.fetchone()
+
+c.execute("SELECT type, COUNT(*) FROM memories GROUP BY type ORDER BY COUNT(*) DESC")
+type_counts = c.fetchall()
+
+c.execute("SELECT source, COUNT(*) FROM memories GROUP BY source ORDER BY COUNT(*) DESC")
+source_counts = c.fetchall()
+
+c.execute("SELECT MAX(created_at) FROM memories")
+last_update = c.fetchone()[0]
+last_str = time.strftime('%Y-%m-%d %H:%M', time.localtime(last_update)) if last_update else 'unknown'
+
+# ── Write INDEX.md ──
+with open(os.path.join(TREE, "INDEX.md"), "w") as f:
+    f.write("# 🌳 ZES Memory Tree\n\n")
+    f.write(f"**{total} memories** across **{types} types** from **{sources} sources**\n")
+    f.write(f"Last updated: {last_str}\n\n")
+    f.write("## By Type\n\n")
+    for t, n in type_counts:
+        slug = t.replace(' ', '-').lower()
+        f.write(f"- [{t} ({n})]({slug}/)\n")
+    f.write("\n## By Source\n\n")
+    for s, n in source_counts:
+        slug = (s or 'unknown').replace(' ', '-').lower()
+        f.write(f"- [{s or 'unknown'} ({n})](source/{slug}/)\n")
+    f.write("\n## Quick Links\n\n")
+    f.write("- [High Priority](priority/high.md)\n")
+    f.write("- [Recent (last 24h)](recent.md)\n")
+    f.write("- [All Memories](all.md)\n")
+
+# ── All memories ──
+c.execute("SELECT id, hash, type, scope, priority, content, tags, source, created_at, updated_at FROM memories ORDER BY created_at DESC")
+rows = c.fetchall()
+
+with open(os.path.join(TREE, "all.md"), "w") as f:
+    f.write(f"# All Memories ({len(rows)})\n\n")
+    for r in rows:
+        rid, h, mtype, scope, priority, content, tags, source, created, updated = r
+        ts = time.strftime('%Y-%m-%d %H:%M', time.localtime(created))
+        icon = {'high': '🔴', 'medium': '🟡', 'low': '⚪'}.get(priority, '⚪')
+        f.write(f"### {icon} {content[:120]}\n")
+        f.write(f"- **Type:** {mtype} | **Source:** {source} | **Priority:** {priority} | **Scope:** {scope}\n")
+        f.write(f"- **Created:** {ts} | **ID:** {h[:12]}\n")
+        if tags:
+            tag_links = " ".join(f"`{t}`" for t in tags.split(','))
+            f.write(f"- **Tags:** {tag_links}\n")
+        f.write("\n")
+
+# ── Recent (last 24h) ──
+now = int(time.time())
+cutoff = now - 86400
+c.execute("SELECT content, type, tags, source, created_at FROM memories WHERE created_at > ? ORDER BY created_at DESC", (cutoff,))
+recent = c.fetchall()
+
+with open(os.path.join(TREE, "recent.md"), "w") as f:
+    f.write(f"# Recent (Last 24h) — {len(recent)} entries\n\n")
+    if not recent:
+        f.write("_No entries in the last 24 hours._\n")
+    for content, mtype, tags, source, ts in recent:
+        dt = time.strftime('%H:%M', time.localtime(ts))
+        f.write(f"- [{dt}] [{mtype}] [{source}] {content[:150]}\n")
+        if tags:
+            f.write(f"  tags: {tags}\n")
+
+# ── Per-type directories ──
+type_map = {}
+for r in rows:
+    mtype = r[2]
+    if mtype not in type_map:
+        type_map[mtype] = []
+    type_map[mtype].append(r)
+
+for mtype, mrows in type_map.items():
+    slug = mtype.replace(' ', '-').lower()
+    dir_path = os.path.join(TREE, slug)
+    os.makedirs(dir_path, exist_ok=True)
+
+    with open(os.path.join(dir_path, "index.md"), "w") as f:
+        f.write(f"# {mtype.title()} — {len(mrows)} memories\n\n")
+        for r in mrows:
+            rid, h, _, scope, priority, content, tags, source, created, updated = r
+            ts = time.strftime('%Y-%m-%d %H:%M', time.localtime(created))
+            icon = {'high': '🔴', 'medium': '🟡', 'low': '⚪'}.get(priority, '⚪')
+            f.write(f"### {icon} {content[:120]}\n")
+            f.write(f"- **Source:** {source} | **Priority:** {priority} | **Scope:** {scope}\n")
+            f.write(f"- **Created:** {ts}\n")
+            if tags:
+                tag_links = " ".join(f"`{t}`" for t in tags.split(','))
+                f.write(f"- **Tags:** {tag_links}\n")
+            f.write("\n")
+
+# ── High Priority ──
+os.makedirs(os.path.join(TREE, "priority"), exist_ok=True)
+c.execute("SELECT content, type, tags, source, created_at FROM memories WHERE priority='high' ORDER BY created_at DESC")
+high = c.fetchall()
+with open(os.path.join(TREE, "priority", "high.md"), "w") as f:
+    f.write(f"# 🔴 High Priority — {len(high)} entries\n\n")
+    for content, mtype, tags, source, ts in high:
+        dt = time.strftime('%Y-%m-%d %H:%M', time.localtime(ts))
+        f.write(f"- [{dt}] [{mtype}] [{source}] {content[:200]}\n")
+        if tags:
+            f.write(f"  tags: {tags}\n")
+
+# ── Per-source directories ──
+source_map = {}
+for r in rows:
+    source = r[7] or 'unknown'
+    if source not in source_map:
+        source_map[source] = []
+    source_map[source].append(r)
+
+for source, srows in source_map.items():
+    slug = source.replace(' ', '-').lower()
+    dir_path = os.path.join(TREE, "source", slug)
+    os.makedirs(dir_path, exist_ok=True)
+    with open(os.path.join(dir_path, "index.md"), "w") as f:
+        f.write(f"# {source} — {len(srows)} memories\n\n")
+        for r in srows:
+            rid, h, mtype, _, priority, content, tags, _, created, _ = r
+            ts = time.strftime('%Y-%m-%d %H:%M', time.localtime(created))
+            icon = {'high': '🔴', 'medium': '🟡', 'low': '⚪'}.get(priority, '⚪')
+            f.write(f"### {icon} [{mtype}] {content[:120]}\n")
+            f.write(f"- **Created:** {ts}\n")
+            if tags:
+                tag_links = " ".join(f"`{t}`" for t in tags.split(','))
+                f.write(f"- **Tags:** {tag_links}\n")
+            f.write("\n")
+
+conn.close()
+
+# ── Count output ──
+file_count = 0
+for root, dirs, files in os.walk(TREE):
+    file_count += len([f for f in files if f.endswith('.md')])
+print(f"  ✓ {file_count} files across {len(type_map)} type dirs + sources + index")
+PYEOF
+}
+
+# ── Show stats ──
+show_stats() {
+  local tree_dir="${1:-$TREE_DIR}"
+  if [ ! -d "$tree_dir" ]; then
+    echo "Tree not built yet. Run 'ztree' first."
+    return 1
+  fi
+  echo "📊 Memory Tree Stats"
+  echo "  Location: $tree_dir"
+  local files; files=$(find "$tree_dir" -name "*.md" 2>/dev/null | wc -l)
+  local dirs; dirs=$(find "$tree_dir" -type d 2>/dev/null | wc -l)
+  local size; size=$(du -sh "$tree_dir" 2>/dev/null | cut -f1)
+  echo "  Files: $files"
+  echo "  Directories: $dirs"
+  echo "  Size: $size"
+  echo "  Structure:"
+  find "$tree_dir" -type d 2>/dev/null | sort | while read d; do
+    local indent="${d//[^\/]/}"
+    echo "  ${indent//\//  }├── $(basename $d)/"
+  done
+}
+
+# ── Main ──
+case "${1:-build}" in
+  build|--build|-b)
+    shift
+    build_tree "${1:-$TREE_DIR}"
+    ;;
+  stats|--stats|-s)
+    shift
+    show_stats "${1:-$TREE_DIR}"
+    ;;
+  watch|--watch|-w)
+    log "👀 Watching for changes (every ${WATCH_INTERVAL}s)..."
+    while true; do
+      build_tree
+      sleep "$WATCH_INTERVAL"
+    done
+    ;;
+  --help|-h)
+    echo "ztree v$VERSION — Memory Tree Exporter"
+    echo ""
+    echo "Usage:"
+    echo "  ztree                  Build the memory tree"
+    echo "  ztree --dir ~/vault    Build to custom directory"
+    echo "  ztree --stats          Show tree stats"
+    echo "  ztree --watch          Auto-refresh every 5 min"
+    ;;
+  *)
+    build_tree "$TREE_DIR"
+    ;;
+esac
