@@ -68,14 +68,14 @@ export default function RootLayout({
 
             {/* Desktop Layout */}
             <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-gap lg:px-sides">
-              <div className="hidden lg:block col-span-2 sticky top-0 h-screen">
+              <div className="hidden lg:block col-span-2 sticky top-0 h-screen overflow-y-auto">
                 <DashboardSidebar />
               </div>
               <div className="col-span-1 lg:col-span-7">
                 {children}
               </div>
               <div className="col-span-3 hidden lg:block">
-                <div className="space-y-gap py-sides min-h-screen max-h-screen sticky top-0 overflow-clip">
+                <div className="space-y-gap py-sides min-h-screen max-h-screen sticky top-0 overflow-y-auto">
                   <div className="flex items-center justify-end px-4">
                     <NotificationBell />
                   </div>
