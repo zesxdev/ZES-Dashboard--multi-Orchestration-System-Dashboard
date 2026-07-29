@@ -278,7 +278,7 @@ export function DashboardSidebar({
             <span className="text-base font-bold tracking-wide bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">ZES</span>
             <span className="text-[9px] uppercase tracking-widest text-muted-foreground/60">Orchestration System</span>
           </div>
-          <div className="flex items-center gap-1.5 ml-auto">
+          <div className="flex items-center gap-1.5 ml-auto group-data-[collapsible=icon]:hidden">
             {["hermes","codex","claude"].map((agent) => (
               <Image
                 key={agent}
