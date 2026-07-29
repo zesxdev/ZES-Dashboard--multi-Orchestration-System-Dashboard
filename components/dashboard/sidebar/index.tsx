@@ -68,6 +68,7 @@ const data = {
         { title: "Overview", url: "/system", icon: BracketsIcon, isActive: false } as NavItem,
         { title: "Laboratory", url: "/laboratory", icon: AtomIcon, isActive: false } as NavItem,
         { title: "Showcase", url: "/showcase", icon: Sparkles, isActive: false } as NavItem,
+        { title: "Tech Stack", url: "/tech-stack", icon: CuteRobotIcon, isActive: false } as NavItem,
         { title: "Dashboard Config", url: "/dashboard-config", icon: GearIcon, isActive: false } as NavItem,
       ],
     },
@@ -276,6 +277,18 @@ export function DashboardSidebar({
           <div className="grid flex-1 text-left text-sm leading-tight">
             <span className="text-base font-bold tracking-wide bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">ZES</span>
             <span className="text-[9px] uppercase tracking-widest text-muted-foreground/60">Orchestration System</span>
+          </div>
+          <div className="flex items-center gap-1.5 ml-auto">
+            {["hermes","codex","claude"].map((agent) => (
+              <Image
+                key={agent}
+                src={`/icons/${agent}.svg`}
+                alt={agent}
+                width={18}
+                height={18}
+                className="size-[18px] opacity-60 hover:opacity-100 transition-opacity"
+              />
+            ))}
           </div>
         </div>
 
