@@ -222,46 +222,18 @@ export function DashboardSidebar({
 }: React.ComponentProps<typeof Sidebar>) {
   const isV0 = useIsV0();
   const [hiddenPages, setHiddenPages] = useState<string[]>([]);
-  const [companies, setCompanies] = useState<CompanyItem[]>([]);
-  const [showNewCompany, setShowNewCompany] = useState(false);
 
-  const loadData = () => {
+  useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) setHiddenPages(JSON.parse(stored) as string[]);
     } catch {}
-    fetch("/api/company")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (!data) return;
-        const list: CompanyItem[] = [];
-        if (data.primary) list.push(data.primary);
-        if (data.companies) list.push(...data.companies);
-        setCompanies(list);
-      })
-      .catch(() => {});
-  };
-
-  useEffect(() => {
-    loadData();
-    const handler = () => loadData();
-    window.addEventListener("storage", handler);
-    const iv = setInterval(handler, 5000);
-    return () => {
-      window.removeEventListener("storage", handler);
-      clearInterval(iv);
-    };
   }, []);
 
   const filteredNav = data.navMain.map((group) => ({
     ...group,
     items: group.items.filter((item) => !hiddenPages.includes(item.url)),
   })).filter((group) => group.items.length > 0);
-
-  const handleCompanyCreated = (id: string) => {
-    loadData();
-    window.location.href = `/company/${id}`;
-  };
 
   return (
     <>
@@ -293,50 +265,9 @@ export function DashboardSidebar({
         </div>
 
         <SidebarContent>
-          {/* Companies Section (dynamic) */}
-          {companies.length > 0 && (
-            <SidebarGroup>
-              <SidebarGroupLabel>
-                <Bullet className="mr-2" />
-                Companies
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {companies.map((company) => (
-                    <SidebarMenuItem key={company.id}>
-                      <SidebarMenuButton asChild isActive={false}>
-                        <a href={`/company/${company.id}`}>
-                          <BuildingIcon className="size-5" />
-                          <span className="truncate">{company.name}</span>
-                          {company.isPrimary && (
-                            <span className="text-[8px] uppercase text-muted-foreground ml-auto">PRIMARY</span>
-                          )}
-                        </a>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild={false}
-                      className="cursor-pointer text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowNewCompany(true)}
-                    >
-                      <div className="flex items-center gap-3 w-full">
-                        <div className="size-5 rounded-md border border-dashed border-muted-foreground/40 flex items-center justify-center">
-                          <PlusIcon className="size-3" />
-                        </div>
-                        <span className="text-[11px]">New Company</span>
-                      </div>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
-
           {filteredNav.map((group, i) => (
             <SidebarGroup
-              className={cn(i === 0 && companies.length === 0 && "rounded-t-none")}
+              className={cn(i === 0 && "rounded-t-none")}
               key={group.title}
             >
               <SidebarGroupLabel>
@@ -450,14 +381,6 @@ export function DashboardSidebar({
 
         <SidebarRail />
       </Sidebar>
-
-      {/* New Company Dialog */}
-      {showNewCompany && (
-        <NewCompanyDialog
-          onClose={() => setShowNewCompany(false)}
-          onCreated={handleCompanyCreated}
-        />
-      )}
     </>
   );
 }
