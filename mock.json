@@ -130,12 +130,12 @@
     },
     {
       "id": "notif-3",
-      "title": "HERMES OFFLINE",
-      "message": "Hermes Dashboard :9119 — API authentication error. Check OpenCode billing.",
-      "timestamp": "2026-07-16T12:44:10Z",
-      "type": "warning",
-      "read": true,
-      "priority": "high"
+      "title": "HERMES ONLINE",
+      "message": "Hermes Dashboard :9119 is running — agent orchestration, memory hub active, VPN bridge connected.",
+      "timestamp": "2026-07-30T08:00:00Z",
+      "type": "success",
+      "read": false,
+      "priority": "medium"
     },
     {
       "id": "notif-4",
