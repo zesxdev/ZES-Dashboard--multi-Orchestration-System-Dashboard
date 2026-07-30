@@ -1,9 +1,7 @@
-# ZES OS — Zero Entropy System
+# ZES OS — Zes Orchestration System
 
-Unified agent orchestration dashboard + Termux backend stack.
+Unified agent orchestration System dashboard + Termux backend stack. Hermes-Codex-Termux
 
-**Originally:** M.O.N.K.Y OS  
-**Rebranded to:** ZES OS (Zero Entropy System)
 
 ## Architecture
 
