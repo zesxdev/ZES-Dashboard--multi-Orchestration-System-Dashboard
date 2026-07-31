@@ -20,19 +20,42 @@ Custom:    Anthropic (via Claude Proxy :5905)
 
 ## Configuration
 
-BitRouter is configured via `~/.bitrouter/config.yaml`. Key settings:
+The live config is `/root/.bitrouter/bitrouter.yaml` (inside the Debian proot;
+host path `.../proot-distro/installed-rootfs/debian/root/.bitrouter/bitrouter.yaml`).
+Providers auto-enable from env keys sourced in the runsv `run` script
+(`~/.secure-credentials/master.env`).
+
+Current routing (2026-07-31):
 
 ```yaml
 providers:
-  opencode-zen:
-    base_url: http://127.0.0.1:5900/codex-api/zen-proxy/v1
-    models:
-      - deepseek-v4-flash-free
-  openai:
-    api_key: ${OPENAI_API_KEY}
-  anthropic:
-    api_key: ${ANTHROPIC_API_KEY}
+  opencode-zen: { enabled: true }   # free deepseek-v4-flash-free
+  openai:       { enabled: true }
+  anthropic:    { enabled: true }
+  openrouter:   { enabled: true }
+  github-copilot: { enabled: true }
+
+models:   # explicit virtual models (Strategy 2.2)
+  anthropic/claude-sonnet-5:    -> opencode-zen/deepseek-v4-flash-free
+  deepseek/deepseek-v4-flash:   -> opencode-zen/deepseek-v4-flash-free
+  deepseek/deepseek-v4-flash-free: -> opencode-zen/deepseek-v4-flash-free
+
+policy_table:
+  tiers: { cheap: deepseek/deepseek-v4-flash-free, flagship: anthropic/claude-sonnet-5 }
+  tool_use_tier: flagship
+  tool_safe_tiers: [flagship]
 ```
+
+Why: the old flagship `openai/gpt-5.5` over chat-completions rejects
+tools + `reasoning_effort` (400), which broke Claude Code. Routing all three
+agents to opencode-zen `deepseek-v4-flash-free` (free, tools-capable) fixes it.
+
+Restart note: `sv restart bitrouter` does NOT kill the daemon (the proot wrapper
+absorbs TERM). Use `kill -9 <bitrouter.orig serve pid>`; runsv respawns it.
+
+Logging: the runsv service has a `log/` subdir running `svlogd -tt $HOME/logs/bitrouter`
+— daemon + request logs land in `~/logs/bitrouter/current` (structured, includes
+policy routing decisions).
 
 ## Usage
 

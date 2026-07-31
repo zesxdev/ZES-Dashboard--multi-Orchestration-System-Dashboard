@@ -37,7 +37,7 @@ Orchestrator and memory curator. Manages cross-agent memory, runs scheduled task
 Secondary agent for code review, parallel task execution, and UI work.
 
 - **Start:** runsv-managed at `:5905`
-- **Model:** Via BitRouter → Anthropic API
+- **Model:** Via BitRouter → opencode-zen `deepseek-v4-flash-free` (settings.json env: `ANTHROPIC_BASE_URL=http://127.0.0.1:5905`)
 - **Scope:** Review, UI polish, parallel builds
 
 ## Communication Flow

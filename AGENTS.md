@@ -49,8 +49,8 @@ ZES OS orchestrates three AI agents — **Codex CLI**, **Hermes Agent**, and **C
 | Agent | Role | Access | Port | Model |
 |-------|------|--------|------|-------|
 | **Codex CLI** | Primary coder | `:5900` Web UI | `deepseek-v4-flash` (OpenCode Zen) |
-| **Hermes** | Orchestrator/memory | `:9119` Dashboard | `deepseek-v4-flash` (OpenCode Zen) |
-| **Claude Code** | Reviewer/parallel | `:5905` Proxy | Via BitRouter |
+| **Hermes** | Orchestrator/memory | `:9119` Dashboard | `deepseek-v4-flash-free` (OpenCode Zen) |
+| **Claude Code** | Reviewer/parallel | `:5905` Proxy | deepseek-v4-flash-free (via BitRouter) |
 
 ## 3. Provider Chain (BitRouter First)
 
@@ -69,7 +69,7 @@ ZES OS orchestrates three AI agents — **Codex CLI**, **Hermes Agent**, and **C
                         └──────────────────┬─────────────────────────┘
                                            ▼
 Codex ──→ codexapp zen-proxy (:5900) ──→ OpenCode Zen (direct)
-Claude ──→ Claude Proxy (:5905) ──→ BitRouter (:4356) ──→ anthropic
+Claude ──→ Claude Proxy (:5905) ──→ BitRouter (:4356) ──→ opencode-zen deepseek-v4-flash-free
 Hermes ──→ opencode-zen (direct) ──→ deepseek-v4-flash-free
 ```
 
