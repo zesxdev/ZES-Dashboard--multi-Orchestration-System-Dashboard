@@ -62,7 +62,7 @@ cd ~/zes-os-dashboard && npm run dev
 | BitRouter | `:4356` | `bitrouter-start` |
 | Hermes Dashboard | `:9119` | `hermes dashboard` |
 | Claude Proxy | `:5905` | runsv-managed |
-| ZES Dashboard | `:5051` | `npm run dev` |
+| ZES Dashboard | `:5051` | `npm run dev` / `next start` |
 | Memory Sync | — | runsv (zes-memory-sync) |
 
 ## Documentation

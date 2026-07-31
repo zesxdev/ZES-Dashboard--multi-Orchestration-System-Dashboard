@@ -2,6 +2,19 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.1] — 2026-07-31
+
+### Added
+- OpenHuman-style d3-force Memory Graph at `/memory-graph` on ZES Dashboard (:5051)
+- Holographic `entities` endpoint in `scripts/memory_api.py` (entity facts + badges)
+- Option B: relation triples — `relations` table, verb + co-occurrence extraction at insert, `relations` / `insert_relation` / `seed_relations` commands
+
+### Changed
+- Left drawer: `Showcase` → `Design Hub`
+
+### Fixed
+- Memory API contract mismatch (dashboard expected holographic schema, API served raw arrays)
+
 ## [4.2.0] — 2026-07-30
 
 ### Changed
