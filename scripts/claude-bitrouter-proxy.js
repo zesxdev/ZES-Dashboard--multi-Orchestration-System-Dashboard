@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ZES Claude Proxy v2 — Enhanced streaming proxy for Claude Code -> 9Router
+ * ZES Claude Proxy v2 — Enhanced streaming proxy for Claude Code -> BitRouter
  * Features: streaming error recovery, timeout handling, auth passthrough, retry
  */
 import http from "http";

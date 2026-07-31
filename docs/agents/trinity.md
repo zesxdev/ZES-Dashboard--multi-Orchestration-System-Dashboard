@@ -1,26 +1,63 @@
-# Agent Trinity (v4.0)
+# ZES OS — Agent Trinity
 
-**Updated:** 2026-07-25
+**Last Updated:** 2026-07-30
 
-## Codex CLI — The Coder
-- **Role:** Primary coding agent
-- **Port:** :5900 (Web UI) / CLI
-- **Model:** big-pickle via OpenCode Zen
-- **Skills:** 95 skill directories
-- **Memory:** Reads from raw_memories.md (synced via Memory Hub)
-- **Config:** ~/.codex/config.toml
+---
 
-## Claude Code — The Reviewer
-- **Role:** Secondary coder, reviewer, parallel worker
-- **Port:** :5905 (proxy)
-- **Runtime:** Node.js via claude-9router-proxy.js → BitRouter
-- **Binary:** proot-distro Debian (261MB, glibc)
-- **Config:** ~/.claude/settings.json
+## Overview
 
-## Hermes — The Memory Curator
-- **Role:** Orchestrator, memory curator, Telegram bot
-- **Port:** :9119 (dashboard)
-- **Model:** opencode-zen:deepseek-v4-flash-free via BitRouter
-- **Memory:** holographic → ~/.zes/memory_hub.sqlite
-- **Config:** ~/.hermes/profiles/hermes_zes/config.yaml
-- **Cron:** health watchdog (15min), memory bridge sync (30min)
+ZES OS operates three AI agents in concert, each with a specialized role:
+
+| Agent | Primary Role | Interface | Port |
+|-------|-------------|-----------|------|
+| **Codex CLI** | Primary developer | Web UI + CLI | `:5900` |
+| **Hermes Agent** | Orchestrator & memory curator | CLI + Dashboard | `:9119` |
+| **Claude Code** | Reviewer & parallel tasks | CLI via proxy | `:5905` |
+
+## Agent Roles
+
+### Codex CLI
+
+The primary coding agent. Builds, tests, and deploys the ZES OS dashboard and infrastructure.
+
+- **Start:** `npx codexapp`
+- **Model:** `big-pickle` via OpenCode Zen (BitRouter)
+- **Skills:** 96 skills in `~/.codex/skills/`
+
+### Hermes Agent
+
+Orchestrator and memory curator. Manages cross-agent memory, runs scheduled tasks, and provides the agent management dashboard.
+
+- **Start:** `hermes` (CLI) or `hermes dashboard` (UI)
+- **Model:** `opencode-zen:deepseek-v4-flash-free` (BitRouter)
+- **Dashboard:** `:9119`
+
+### Claude Code
+
+Secondary agent for code review, parallel task execution, and UI work.
+
+- **Start:** runsv-managed at `:5905`
+- **Model:** Via BitRouter → Anthropic API
+- **Scope:** Review, UI polish, parallel builds
+
+## Communication Flow
+
+```
+Agent wants to share information
+    │
+    ▼
+Writes to Memory Hub (SQLite FTS5)
+    │
+    ▼
+zes-memory-bridge export → updates all agent memory files
+    │
+    ▼
+All agents can read via ~/.codex/memories/ or ~/.zes/shared-memory.md
+```
+
+## Best Practices
+
+1. **Use Memory Hub for persistent facts** — Don't rely on conversation context alone
+2. **Tag memories appropriately** — Use `scope: global`, `priority: medium|high|low`, `type: fact|decision|pattern`
+3. **Sync regularly** — Run `zes-memory-bridge export` after adding important memories
+4. **Delegate by strength** — Codex for code, Hermes for orchestration, Claude for review

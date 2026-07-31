@@ -1,48 +1,57 @@
-# BitRouter Provider Guide
+# ZES OS — BitRouter Provider
 
-**Version:** v1.0.0-alpha.27  
-**Port:** :4356  
-**Config:** /root/.bitrouter/bitrouter.yaml (inside proot-distro Debian)
+**Last Updated:** 2026-07-30
+
+---
 
 ## Overview
 
-BitRouter is the self-improving LLM router — replaces legacy 9Router.
+BitRouter is the primary LLM gateway for ZES OS, routing requests across 53+ models from 12 providers with automatic failover and load balancing.
 
-## Policy Table
+**Port:** `:4356`
+
+## Provider Chain
+
+```
+Primary:   opencode-zen:deepseek-v4-flash-free
+Fallback:  openai/gpt-5.4-mini (via OpenRouter)
+Custom:    Anthropic (via Claude Proxy :5905)
+```
+
+## Configuration
+
+BitRouter is configured via `~/.bitrouter/config.yaml`. Key settings:
 
 ```yaml
-tiers:
-  cheap:    opencode-zen:deepseek-v4-flash-free
-  flagship: openai/gpt-5.5
-fingerprints:
-  opening:          flagship
-  after_read_file:  cheap
-  after_write_file: cheap
-  midstream:        cheap
-  after_tool_error: flagship
-default_tier:    flagship
-tool_use_tier:   flagship
-adequacy:
-  enabled: true
-  escalation_tier: flagship
+providers:
+  opencode-zen:
+    base_url: http://127.0.0.1:5900/codex-api/zen-proxy/v1
+    models:
+      - deepseek-v4-flash-free
+  openai:
+    api_key: ${OPENAI_API_KEY}
+  anthropic:
+    api_key: ${ANTHROPIC_API_KEY}
 ```
 
-## Model Access
+## Usage
 
 ```bash
-# List all 53 models
-curl http://localhost:4356/v1/models
+# List available models
+curl http://127.0.0.1:4356/v1/models
 
-# Chat completion (no auth needed — skip_auth: true)
-curl http://localhost:4356/v1/chat/completions \
+# Test routing
+curl http://127.0.0.1:4356/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"opencode-zen:deepseek-v4-flash-free","messages":[{"role":"user","content":"hello"}]}'
+  -d '{"model": "deepseek-v4-flash-free", "messages": [{"role": "user", "content": "hello"}]}'
 ```
 
-## API Keys
+## Model Selection
 
-Stored in `~/.secure-credentials/master.env`:
-- OPENCODE_ZEN_API_KEY — OpenCode Zen free tier
-- ANTHROPIC_API_KEY — Claude models
-- OPENAI_API_KEY — GPT models
-- OPENROUTER_API_KEY — OpenRouter fallback
+Each agent in ZES OS uses a specific model:
+
+| Agent | Default Model | Provider | 
+|-------|--------------|----------|
+| Codex CLI | big-pickle | OpenCode Zen |
+| Hermes | deepseek-v4-flash-free | OpenCode Zen |
+| Claude Code | claude-sonnet-4 | Anthropic (via :5905) |
