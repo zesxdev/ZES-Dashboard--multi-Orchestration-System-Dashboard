@@ -76,6 +76,10 @@ function proxy(method, path, headers, body, res, retries) {
 }
 
 http.createServer((req, res) => {
+  const reqStartedAt = Date.now();
+  res.on("finish", () => {
+    console.log(`[proxy] ${req.method} ${req.url} -> ${res.statusCode} (${Date.now() - reqStartedAt}ms)`);
+  });
   res.setHeader("Access-Control-Allow-Origin", "*");
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 

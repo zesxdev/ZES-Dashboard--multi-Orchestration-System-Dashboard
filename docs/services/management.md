@@ -43,8 +43,11 @@ sv stop <service-name>
 # Dashboard logs
 tail -f ~/zes-os-dashboard/dashboard.log
 
-# System logs
+# System logs (runsv services pipe stdout/stderr into svlogd)
 ls ~/logs/
+tail -f ~/logs/bitrouter/current        # BitRouter (structured, incl. policy routing)
+tail -f ~/logs/claude-proxy/current     # Claude proxy (per-request status lines)
+tail -f ~/logs/zes-memory-sync/current  # ZES memory sync
 ```
 
 ## Health Check
