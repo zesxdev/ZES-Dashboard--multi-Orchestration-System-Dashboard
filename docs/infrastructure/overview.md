@@ -14,7 +14,8 @@ Internet
     ▼
 Termux on Android aarch64
     │
-    ├── BitRouter (:4356) ──→ LLM Providers
+    ├── 9Router (:20128) ──→ provider & key management (control plane)
+    ├── BitRouter (:4356) ──→ LLM routing (data plane)
     ├── Codex CLI (:5900) ──→ Web UI
     ├── Hermes (:9119) ──→ Dashboard
     ├── Claude Proxy (:5905) ──→ API
@@ -27,7 +28,8 @@ All services run locally on the device. No cloud dependencies required.
 
 | Service | Type | Port | Dependencies |
 |---------|------|------|-------------|
-| BitRouter | AI Gateway | 4356 | Node.js 22 |
+| BitRouter | LLM Router (data plane) | 4356 | proot/Rust |
+| 9Router | Provider & Key Mgmt (control plane) | 20128 | runsv (r9) |
 | ZES Dashboard | Next.js | 5051 | Node.js, .next build |
 | Codex Web UI | Agent UI | 5900 | Codex CLI |
 | Claude Proxy | API Proxy | 5905 | runsv |

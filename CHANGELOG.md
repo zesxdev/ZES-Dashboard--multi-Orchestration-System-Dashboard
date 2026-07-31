@@ -54,7 +54,8 @@ All notable changes to ZES OS will be documented in this file.
 
 ### Changed
 - BitRouter now runs as a persistent runsv service (`sv start bitrouter`) — survives restarts
-- 9Router (:20128) retired: service stopped + disabled, references removed from start-all.sh, zes CLI, dashboard
-- Codex config.toml: `[model_providers.bitrouter]` added (base_url :4356/v1), 9router provider removed
+- 9Router re-purposed as the **control plane**: provider connections, API keys, proxy pools & usage tracking (:20128, runsv r9)
+- BitRouter is the **data plane**: LLM routing across 54 models (:4356, runsv bitrouter)
+- Codex config.toml: `[model_providers.bitrouter]` added (base_url :4356/v1)
 - `claude-9router-proxy.js` renamed → `claude-bitrouter-proxy.js` (routes to BitRouter :4356)
-- Dashboard /9router page now points to BitRouter :4356
+- Dashboard /9router page describes provider & key management; sidebar shows both BitRouter + 9Router

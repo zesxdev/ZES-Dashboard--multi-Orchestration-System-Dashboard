@@ -13,6 +13,7 @@
 | 5900 | Codex Web UI | HTTP/WS | `npx codexapp` |
 | 5905 | Claude Code Proxy | HTTP | runsv (claude-proxy) |
 | 9119 | Hermes Dashboard | HTTP | `hermes dashboard` |
+| 20128 | 9Router (control plane) | HTTP | runsv (r9) — provider & key mgmt |
 | 9222 | Chromium Headless | DevTools | runsv |
 
 ## Port Conflicts

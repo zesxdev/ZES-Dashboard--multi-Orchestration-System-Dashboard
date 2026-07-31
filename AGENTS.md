@@ -55,11 +55,27 @@ ZES OS orchestrates three AI agents — **Codex CLI**, **Hermes Agent**, and **C
 ## 3. Provider Chain (BitRouter First)
 
 ```
-Codex ──→ codexapp zen-proxy (:5900) ──→ OpenCode Zen (direct, deepseek-v4-flash)
-Claude ──→ Claude Proxy (:5905) ──→ BitRouter (:4356) ──→ anthropic models
-Hermes ──→ opencode-zen (direct) ──→ deepseek-v4-flash-free (default)
-                               └──→ openai/gpt-5.4-mini (fallback via OpenRouter)
+                        ┌────────────────────────────────────────────┐
+                        │ 9Router :20128 (control plane)             │
+                        │ Provider connections · API keys · proxy     │
+                        │ pools · usage tracking (15 providers, 3     │
+                        │ proxy pools, key mgmt)                      │
+                        └──────────────────┬─────────────────────────┘
+                                           │ supplies providers/keys
+                                           ▼
+                        ┌────────────────────────────────────────────┐
+                        │ BitRouter :4356 (data plane / LLM router)   │
+                        │ 54 models · routing · failover              │
+                        └──────────────────┬─────────────────────────┘
+                                           ▼
+Codex ──→ codexapp zen-proxy (:5900) ──→ OpenCode Zen (direct)
+Claude ──→ Claude Proxy (:5905) ──→ BitRouter (:4356) ──→ anthropic
+Hermes ──→ opencode-zen (direct) ──→ deepseek-v4-flash-free
 ```
+
+**9Router** is the provider & key management layer (control plane) — it stores provider
+connections, API keys, proxy pools, and usage history. **BitRouter** is the LLM routing
+layer (data plane) — it routes requests across the models 9router configures.
 
 ## 4. Services
 
