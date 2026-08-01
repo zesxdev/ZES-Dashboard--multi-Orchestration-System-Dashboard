@@ -87,6 +87,8 @@ layer (data plane) — it routes requests across the models 9router configures.
 | ZES Dashboard | `:5051` | Next.js · 49 pages · Mindwalk at `/mindwalk` |
 | Memory Hub | SQLite + FTS5 | Cross-agent shared |
 
+**Dashboard notes (2026-08-01):** New Company dialog is portaled to `document.body` (full-screen mobile overlay); mobile bottom nav offsets content via `--bottom-nav-h` (layout padding + full-viewport pages Mindwalk / Topology 3D / Wireflow).
+
 ## 5. Shared Memory
 
 ZES agents share memory through the ZES Memory Hub. 200+ memories across Codex, Hermes, and Claude Code.

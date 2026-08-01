@@ -2,6 +2,12 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.2] — 2026-08-01
+
+### Fixed
+- New Company dialog now renders as full-screen mobile overlay via `createPortal` (escapes sidebar stacking context); no longer stuck in "Creating…" state
+- Mobile bottom nav no longer covers page content: layout padding + full-viewport pages (Mindwalk, Topology 3D, Wireflow) subtract `--bottom-nav-h` safe-area offset
+
 ## [4.2.1] — 2026-07-31
 
 ### Added

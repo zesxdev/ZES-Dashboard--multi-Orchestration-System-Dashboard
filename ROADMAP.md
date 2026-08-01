@@ -41,6 +41,8 @@
   - [x] Touch targets optimized (24px minimum)
   - [x] Mobile-responsive topology diagrams
   - [x] Safe-area-inset support for notched phones
+  - [x] Bottom nav no longer covers content (safe-area offset on all pages)
+  - [x] New Company dialog full-screen mobile overlay (portaled to body)
 
 ### 4. Zero-Downtime Service Management
 - [x] **Goal:** Start/stop/restart services from dashboard
