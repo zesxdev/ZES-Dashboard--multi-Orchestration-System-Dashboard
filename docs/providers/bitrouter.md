@@ -77,4 +77,4 @@ Each agent in ZES OS uses a specific model:
 |-------|--------------|----------|
 | Codex CLI | big-pickle | OpenCode Zen |
 | Hermes | deepseek-v4-flash-free | OpenCode Zen |
-| Claude Code | claude-sonnet-4 | Anthropic (via :5905) |
+| Claude Code | deepseek-v4-flash-free | `claude-deepseek` runner via Claude Proxy :5905 → BitRouter → opencode-zen |

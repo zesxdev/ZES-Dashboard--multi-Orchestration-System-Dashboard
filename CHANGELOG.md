@@ -2,6 +2,11 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.3] — 2026-08-01
+
+### Fixed
+- `claude-deepseek` runner was still pointed at retired 9Router (`:20128`, `oc/` model, stale key) — rewired to Claude Proxy :5905 → BitRouter :4356 → `deepseek/deepseek-v4-flash-free`; managed copy added at `scripts/claude-deepseek`
+
 ## [4.2.2] — 2026-08-01
 
 ### Fixed

@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Claude Code through Claude Proxy (:5905) -> BitRouter (:4356) -> DeepSeek V4 Flash Free + auto Tor IP rotation
+# On rate limit (429), automatically rotates Tor circuit and retries
+
+export ANTHROPIC_BASE_URL="http://127.0.0.1:5905/v1"
+export ANTHROPIC_AUTH_TOKEN="noop-bitrouter-key"
+export ANTHROPIC_API_KEY="noop-bitrouter-key"
+MODEL="deepseek/deepseek-v4-flash-free"
+MAX_RETRIES=3
+RETRY_DELAY=10
+
+# Ensure Tor circuit is ready
+python3 -c "
+import socket, time
+s = socket.socket(); s.settimeout(5)
+s.connect(('127.0.0.1', 9051))
+with open('/data/data/com.termux/files/usr/var/run/tor/control.authcookie','rb') as f:
+    h = f.read().hex()
+s.send(f'AUTHENTICATE {h}\r\n'.encode())
+s.recv(4096)
+s.send(b'GETINFO status/circuit-established\r\n')
+r = s.recv(4096)
+s.close()
+if b'=0' in r:
+    print('Waiting for Tor circuit...')
+    s = socket.socket(); s.settimeout(5)
+    s.connect(('127.0.0.1', 9051))
+    s.send(f'AUTHENTICATE {h}\r\n'.encode()); s.recv(4096)
+    s.send(b'SIGNAL NEWNYM\r\n'); s.recv(4096)
+    s.close()
+    for i in range(30):
+        time.sleep(2)
+        s = socket.socket(); s.settimeout(3)
+        s.connect(('127.0.0.1', 9051))
+        s.send(f'AUTHENTICATE {h}\r\n'.encode()); s.recv(4096)
+        s.send(b'GETINFO status/circuit-established\r\n')
+        r = s.recv(4096); s.close()
+        if b'=1' in r:
+            print('Circuit established.')
+            break
+" 2>&1
+
+# Run Claude Code with auto-retry on rate limit
+for attempt in $(seq 1 $MAX_RETRIES); do
+  if [ $attempt -gt 1 ]; then
+    echo "[${attempt}/${MAX_RETRIES}] Rate limited! Rotating Tor IP..."
+    ~/.local/bin/iprotate --wait 2>&1 | sed 's/^/  /'
+    echo "  Retrying in ${RETRY_DELAY}s..."
+    sleep "$RETRY_DELAY"
+  fi
+
+  # Run Claude Code and capture exit status
+  claude --model "$MODEL" "$@" 2>&1
+  EXIT_CODE=$?
+
+  # Check for rate limit in output
+  if [ $EXIT_CODE -eq 0 ]; then
+    exit 0
+  fi
+
+  # Some errors may not be 429 but still transient
+  if [ $EXIT_CODE -eq 130 ] || [ $EXIT_CODE -eq 137 ] || [ $EXIT_CODE -eq 143 ]; then
+    # SIGINT/SIGKILL — don't retry
+    exit $EXIT_CODE
+  fi
+done
+
+echo "[ERROR] Claude Code failed after ${MAX_RETRIES} retries"
+exit 1
