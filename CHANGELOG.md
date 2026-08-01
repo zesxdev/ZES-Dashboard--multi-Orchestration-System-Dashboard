@@ -2,6 +2,25 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.8] — 2026-08-01
+
+### Added
+- BitRouter OTLP exporter wired to a **local OTel Collector** (runsv `otelcol`, core v0.121.0, proot Debian):
+  `plugins.bitrouter-observe.otel` (metrics enabled, metadata-only capture, no content) + `OTEL_EXPORTER_OTLP_ENDPOINT` env
+  (proot strips env — injected via the runsv run script's inner `bash -c`, same trick as the API keys)
+- `otlp-dispatcher` (runsv, `bin/otlp-dispatcher.py`) on `:4318` — BitRouter posts both signals to one endpoint (path `/`,
+  opentelemetry-otlp 0.32 `with_endpoint` does not append signal paths), so the dispatcher sniffs the protobuf payload
+  (trace_id = 16 binary bytes vs metric name = ASCII) and forwards to the collector's `/v1/traces` / `/v1/metrics` (`:4320`)
+- Collector exposes **Prometheus metrics at `:4319/metrics`**: `zes_bitrouter_requests_total`,
+  `zes_gen_ai_client_token_usage_*` (input/output tokens), `zes_gen_ai_client_operation_duration_seconds_*` (latency histogram),
+  labeled by provider/model/outcome/user; traces land in the debug exporter
+- Dashboard **`/usage`** page (sidebar System → Usage): frost stat cards (requests, input/output tokens, avg latency + p95),
+  per-model breakdown table, pipeline status; API route `/api/usage` scrapes `:4319`
+
+### Notes
+- First-party BitRouter cloud telemetry (`telemetry.bitrouter.ai`) is OFF — the `telemetry:` opt-in block was removed so the
+  local `otel:` block wins; all telemetry stays on-device
+
 ## [4.2.7] — 2026-08-01
 
 ### Changed
