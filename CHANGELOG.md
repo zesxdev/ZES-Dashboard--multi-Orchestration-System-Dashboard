@@ -2,6 +2,19 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.6] — 2026-08-01
+
+### Added
+- Memory Hub MCP server (`scripts/zes-memory-mcp.py`, stdio, FastMCP):
+  tools `memory_search`, `memory_vector_search`, `memory_get`, `memory_insert`,
+  `memory_recent`, `memory_stats`, `memory_relations`, `memory_consolidate`;
+  resource `memory://stats` — registered with Codex CLI (`config.toml`) and Claude Code (`~/.claude.json`)
+- Dashboard `/memory`: SEMANTIC toggle — vector search with score badges
+  (API route `/api/memory?path=vector-search`)
+
+### Fixed
+- `consolidate()` purges orphan vectors; vector coverage stats capped at 100%
+
 ## [4.2.5] — 2026-08-01
 
 ### Added
