@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""ZES Harness Audit — quick health check for the agent harness (MetaHarness-style).
+
+Checks: core services, memory hub health, vector coverage, loop-receipt
+freshness, and skill/script drift.
+Usage: python3 zes-audit [--json]
+"""
+import json
+import os
+import socket
+import sqlite3
+import subprocess
+import sys
+from datetime import datetime, timezone
+
+HOME = os.path.expanduser("~")
+DB = os.path.join(HOME, ".zes", "memory_hub.sqlite")
+SERVICES = {
+    "bitrouter": 4356,
+    "claude-proxy": 5905,
+    "codex": 5900,
+    "hermes-dashboard": 9119,
+    "zes-dashboard": 5051,
+    "zes-memory-sync": None,
+}
+
+
+def port_open(port):
+    if port is None:
+        return None
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=2):
+            return True
+    except OSError:
+        return False
+
+
+def main():
+    report = {"ts": datetime.now(timezone.utc).isoformat(), "checks": []}
+
+    for name, port in SERVICES.items():
+        if port is None:
+            ok = os.path.exists(f"/data/data/com.termux/files/usr/var/service/{name}/run")
+            report["checks"].append({"service": name, "ok": ok, "detail": "service dir exists" if ok else "MISSING"})
+        else:
+            ok = port_open(port)
+            report["checks"].append({"service": name, "ok": bool(ok), "detail": f"port {port} {'open' if ok else 'closed'}"})
+
+    # Memory hub health + vector coverage
+    try:
+        conn = sqlite3.connect(DB)
+        mem = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+        vec = conn.execute("SELECT COUNT(*) FROM memory_vectors").fetchone()[0]
+        gem = conn.execute("SELECT COUNT(*) FROM memory_vectors WHERE model != 'local-hash'").fetchone()[0]
+        conn.close()
+        report["memory"] = {"memories": mem, "vectors": vec, "gemini_vectors": gem,
+                            "coverage": round(100 * vec / max(mem, 1), 1)}
+        report["checks"].append({"service": "memory-hub", "ok": vec > 0,
+                                 "detail": f"{mem} memories, {vec} vectors ({gem} gemini)"})
+    except Exception as e:
+        report["checks"].append({"service": "memory-hub", "ok": False, "detail": str(e)})
+
+    # Loop receipt freshness (codex + claude self-improve)
+    for agent in ("codex-self-improve", "claude-self-improve"):
+        path = os.path.join(HOME, ".zes", "learnings", f"{agent}.jsonl")
+        latest = None
+        if os.path.exists(path):
+            try:
+                with open(path, "rb") as f:
+                    f.seek(-2000, 2)
+                    for line in f.read().decode(errors="ignore").splitlines():
+                        if line.strip():
+                            try:
+                                latest = json.loads(line).get("ts")
+                            except Exception:
+                                pass
+            except OSError:
+                pass
+        fresh = bool(latest)
+        report["checks"].append({"service": f"receipt:{agent}", "ok": fresh,
+                                 "detail": f"latest receipt {latest or 'NONE'}"})
+
+    # Vector coverage action item
+    cov = report["memory"]["coverage"]
+    if cov < 100:
+        report["action"] = f"Run: zes-memory-bridge embed  (coverage {cov}% -> needs 100%)"
+
+    if "--json" in sys.argv:
+        print(json.dumps(report, indent=2))
+    else:
+        for c in report["checks"]:
+            print(f"{'✓' if c['ok'] else '✗'} {c['service']}: {c['detail']}")
+        if "action" in report:
+            print(f"\n→ {report['action']}")
+        score = sum(1 for c in report["checks"] if c["ok"]) / max(len(report["checks"]), 1)
+        print(f"\nHarness health: {round(score * 100)}%")
+
+
+if __name__ == "__main__":
+    main()

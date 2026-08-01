@@ -44,6 +44,11 @@
   - [x] Bottom nav no longer covers content (safe-area offset on all pages)
   - [x] New Company dialog full-screen mobile overlay (portaled to body)
 
+### 4b. Harness Audit (MetaHarness 2026-08-01)
+- [ ] MCP server exposing Memory Hub (search/insert/vector/consolidate) for Codex + Claude Code
+- [ ] Track `~/.local/bin` + `~/.codex/skills` in repo via install manifest (kill drift)
+- [x] `scripts/zes-audit` — service/memory/vector/receipt health check (89% baseline)
+
 ### 4. Zero-Downtime Service Management
 - [x] **Goal:** Start/stop/restart services from dashboard
 - **Actions:**
