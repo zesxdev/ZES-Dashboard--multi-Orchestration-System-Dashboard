@@ -42,7 +42,7 @@ import BookTemplateIcon from "@/components/icons/template";
 import Image from "next/image";
 import { useIsV0 } from "@/lib/v0-context";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
-import { Sparkles, Target, DollarSign } from "lucide-react";
+import { Sparkles, Target, DollarSign, Hammer } from "lucide-react";
 
 const STORAGE_KEY = "zes-dashboard-hidden-pages";
 
@@ -66,6 +66,7 @@ const data = {
       title: "Tools",
       items: [
         { title: "Overview", url: "/system", icon: BracketsIcon, isActive: false } as NavItem,
+        { title: "App Builder", url: "/app-builder", icon: Hammer, isActive: false } as NavItem,
         { title: "Laboratory", url: "/laboratory", icon: AtomIcon, isActive: false } as NavItem,
         { title: "Showcase", url: "/showcase", icon: Sparkles, isActive: false } as NavItem,
         { title: "Tech Stack", url: "/tech-stack", icon: CuteRobotIcon, isActive: false } as NavItem,
