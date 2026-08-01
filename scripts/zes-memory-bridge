@@ -5,7 +5,7 @@ Export:  SQLite → shared_memory.md (flat file for Codex/Claude)
 Import:  Codex raw_memories.md → SQLite
 Status:  Show all shared memories and counts
 """
-import os, sys, json, argparse
+import os, sys, json, argparse, sqlite3, time
 os.environ.setdefault("HERMES_HOME", os.path.expanduser("~/.hermes/profiles/hermes_zes"))
 sys.path.insert(0, os.path.expanduser('~/hermes-agent'))
 from plugins.memory.zes_memory.store import MemoryStore
@@ -62,6 +62,10 @@ def cmd_import_codex():
         line = line.strip()
         if line.startswith('- ') and len(line) > 2:
             fact = line[2:].strip()
+            # Strip export-style "[type] " prefix so re-imports dedup against originals
+            m = __import__('re').match(r'^\[[a-z_]+\]\s+(.*)$', fact)
+            if m:
+                fact = m.group(1).strip()
             if fact and len(fact) > 10:
                 is_new, h = store.insert({
                     "content": fact,
@@ -137,8 +141,114 @@ def cmd_consolidate(days=7):
     print(f"✓ Consolidation: deduped {res['deduped']}, pruned {res['pruned']} (total {res['total_deleted']} removed)")
     store.shutdown()
 
+def _cmem_obs_text(r):
+    """Build a readable fact from a claude-mem observation row."""
+    title = (r['title'] or '').strip()
+    parts = []
+    if title:
+        parts.append(title)
+    facts = r['facts']
+    if facts:
+        try:
+            fl = json.loads(facts) if isinstance(facts, str) else facts
+            if isinstance(fl, list):
+                parts.extend(str(x).strip() for x in fl[:4] if str(x).strip())
+        except Exception:
+            pass
+    narr = (r['narrative'] or '').strip()
+    if narr:
+        parts.append(narr[:400])
+    return ' — '.join(p for p in parts if p)[:600]
+
+def _cmem_summary_text(s):
+    """Build a readable fact from a claude-mem session_summaries row."""
+    bits = []
+    for k in ('learned', 'completed', 'investigated', 'next_steps'):
+        v = (s[k] or '').strip() if s[k] else ''
+        if v:
+            bits.append(f"{k}: {v[:250]}")
+    return ' | '.join(bits)[:600] or (s['request'] or '').strip()[:600]
+
+def cmd_import_claude_mem():
+    """Import new claude-mem observations + session summaries into Memory Hub.
+
+    Reads ~/.claude-mem/claude-mem.db (read-only), pushes substantive
+    observations (bugfix/decision/discovery/refactor) and session summaries
+    as global memories. Watermark in ~/.zes/claude-mem-sync.json prevents
+    re-importing. Run before export so new facts reach shared-memory.md.
+    """
+    CMEM_DB = os.path.join(HOME, '.claude-mem', 'claude-mem.db')
+    STATE = os.path.join(HOME, '.zes', 'claude-mem-sync.json')
+    WHITELIST = {'bugfix', 'decision', 'discovery', 'refactor'}
+    TYPE_MAP = {'decision': 'decision', 'discovery': 'fact', 'bugfix': 'fact', 'refactor': 'pattern'}
+
+    if not os.path.exists(CMEM_DB):
+        print(f"! No claude-mem DB at {CMEM_DB} (worker not started yet)")
+        return
+    state = {}
+    if os.path.exists(STATE):
+        try:
+            with open(STATE) as f:
+                state = json.load(f)
+        except Exception:
+            state = {}
+    last_obs = int(state.get('last_obs_epoch', 0) or 0)
+    last_sum = int(state.get('last_summary_epoch', 0) or 0)
+
+    store.initialize()
+    imported = 0
+    try:
+        conn = sqlite3.connect(f'file:{CMEM_DB}?mode=ro', uri=True)
+        conn.row_factory = sqlite3.Row
+        for r in conn.execute(
+                "SELECT * FROM observations WHERE created_at_epoch > ? ORDER BY created_at_epoch",
+                (last_obs,)):
+            t = (r['type'] or '').lower()
+            if t not in WHITELIST:
+                continue
+            content = _cmem_obs_text(r)
+            if not content:
+                continue
+            is_new, _ = store.insert({
+                'content': content,
+                'type': TYPE_MAP.get(t, 'fact'),
+                'scope': 'global',
+                'source': 'claude-mem',
+                'tags': f"claude-mem, {r['project'] or ''}, {t}",
+            })
+            if is_new:
+                imported += 1
+            last_obs = max(last_obs, int(r['created_at_epoch'] or 0))
+        for s in conn.execute(
+                "SELECT * FROM session_summaries WHERE created_at_epoch > ? ORDER BY created_at_epoch",
+                (last_sum,)):
+            content = _cmem_summary_text(s)
+            if not content:
+                continue
+            is_new, _ = store.insert({
+                'content': content,
+                'type': 'fact',
+                'scope': 'global',
+                'source': 'claude-mem',
+                'tags': f"claude-mem, session-summary, {s['project'] or ''}",
+            })
+            if is_new:
+                imported += 1
+            last_sum = max(last_sum, int(s['created_at_epoch'] or 0))
+        conn.close()
+    except sqlite3.Error as e:
+        print(f"! claude-mem DB read failed: {e}")
+        store.shutdown()
+        return
+
+    with open(STATE, 'w') as f:
+        json.dump({'last_obs_epoch': last_obs, 'last_summary_epoch': last_sum}, f)
+    print(f"✓ Imported {imported} new claude-mem entries to Memory Hub (total: {store.count()})")
+    store.shutdown()
+
 def cmd_cron():
-    """Run full sync cycle — export then import."""
+    """Run full sync cycle — claude-mem, export, then codex import."""
+    cmd_import_claude_mem()
     cmd_export()
     cmd_import_codex()
     print("✓ Bridge sync complete")
@@ -146,12 +256,12 @@ def cmd_cron():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ZES Memory Bridge')
     parser.add_argument('action', nargs='?', default='status',
-                        choices=['export', 'import', 'status', 'cron', 'embed', 'search', 'consolidate'])
+                        choices=['export', 'import', 'import-claude-mem', 'status', 'cron', 'embed', 'search', 'consolidate'])
     parser.add_argument('query', nargs='*', default=[])
     parser.add_argument('--force', action='store_true', help='re-embed all (embed)')
     args = parser.parse_args()
     actions = {
-        'export': cmd_export, 'import': cmd_import_codex,
+        'export': cmd_export, 'import': cmd_import_codex, 'import-claude-mem': cmd_import_claude_mem,
         'status': cmd_status, 'cron': cmd_cron,
         'embed': lambda: cmd_embed(args.force),
         'consolidate': lambda: cmd_consolidate(args.query[0] if args.query else 7),
