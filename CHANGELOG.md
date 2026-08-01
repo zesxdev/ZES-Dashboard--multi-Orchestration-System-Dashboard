@@ -2,6 +2,11 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.4] — 2026-08-01
+
+### Fixed
+- Claude Code tool calls failing with DeepSeek 400 ("assistant message with tool_calls must be followed by tool messages") — Claude Proxy v3 now converts Anthropic ↔ OpenAI itself (tool messages ordering, `reasoning_content` echo-back, SSE reconstruction) instead of relying on BitRouter's Anthropic adapter; verified with real Bash tool round-trip via `claude-deepseek`
+
 ## [4.2.3] — 2026-08-01
 
 ### Fixed

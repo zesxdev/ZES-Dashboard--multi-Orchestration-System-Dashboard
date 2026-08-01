@@ -50,6 +50,15 @@ Why: the old flagship `openai/gpt-5.5` over chat-completions rejects
 tools + `reasoning_effort` (400), which broke Claude Code. Routing all three
 agents to opencode-zen `deepseek-v4-flash-free` (free, tools-capable) fixes it.
 
+Claude Proxy (:5905) is **v3** — it no longer forwards Anthropic-format bodies to
+BitRouter's `/v1/messages` (whose Anthropic adapter dropped tool-result ordering and
+DeepSeek `reasoning_content`). It converts Anthropic Messages API → OpenAI Chat
+Completions and calls BitRouter `/v1/chat/completions` directly:
+- `tool_result` blocks → OpenAI `role: tool` messages (immediately after the assistant tool_calls message)
+- assistant `tool_use` → `tool_calls`, with `reasoning_content` echoed back (DeepSeek thinking-mode requirement)
+- streamed `input_json_delta` events reconstructed into Anthropic `content_block_*` SSE
+- `tool_choice` `any`/`tool` → `auto` (DeepSeek thinking mode rejects `required`)
+
 Restart note: `sv restart bitrouter` does NOT kill the daemon (the proot wrapper
 absorbs TERM). Use `kill -9 <bitrouter.orig serve pid>`; runsv respawns it.
 
