@@ -247,7 +247,7 @@ export default function OrchestratorPage() {
 
   const pendingTasks = tasks.filter(t => t.status === "pending");
   const runningTasks = tasks.filter(t => t.status === "running");
-  const doneTasks = tasks.filter(t => t.status === "done" || t.status === "completed");
+  const doneTasks = tasks.filter(t => t.status === "done");
   const failedTasks = tasks.filter(t => t.status === "failed");
 
   return (

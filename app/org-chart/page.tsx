@@ -13,13 +13,13 @@ import OrgChart, { OrgNode } from "@/components/dashboard/org-chart";
 function buildOrgTree(agents: any[]): OrgNode[] {
   const agentMap = new Map<string, any>();
   for (const a of agents) {
-    agentMap.set(a.id, { ...a, children: [] });
+    agentMap.set(a.id, { ...a, reports: [] });
   }
   const roots: OrgNode[] = [];
   for (const a of agents) {
     const node = agentMap.get(a.id)!;
     if (a.reportsTo && agentMap.has(a.reportsTo)) {
-      agentMap.get(a.reportsTo)!.children.push(node);
+      agentMap.get(a.reportsTo)!.reports.push(node);
     } else {
       roots.push(node);
     }
@@ -94,9 +94,8 @@ function OrgChartContent() {
           </div>
         ) : (
           <OrgChart
-            data={tree}
-            focusedAgentId={focusedAgent}
-            onAgentFocus={(id) => setFocusedAgent(id)}
+            nodes={tree}
+            onAgentClick={(id: string) => setFocusedAgent(id)}
           />
         )}
       </div>

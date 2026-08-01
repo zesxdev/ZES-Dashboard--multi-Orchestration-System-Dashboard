@@ -15,7 +15,7 @@ export interface ParsedConnection {
 }
 
 export interface ParsedDiagram {
-  nodes: Map<string, ParsedNode>
+  nodes: ParsedNode[]
   connections: ParsedConnection[]
   subgraphs: { id: string; title: string; nodeIds: string[] }[]
 }
@@ -173,7 +173,7 @@ function parseNodeLabel(rawLabel: string): { label: string; sublabel?: string } 
   return { label: cleaned }
 }
 
-export function parseMermaid(mermaidCode: string): ParsedDiagram & { nodes: ParsedNode[] } {
+export function parseMermaid(mermaidCode: string): ParsedDiagram {
   const nodes: Map<string, ParsedNode> = new Map()
   const connections: ParsedConnection[] = []
   const subgraphs: { id: string; title: string; nodeIds: string[] }[] = []

@@ -13,7 +13,7 @@ import CuteRobotIcon from "@/components/icons/cute-robot";
 
 export default function ClaudeCodePage() {
   const [status, setStatus] = useState("checking");
-  const [serviceInfo, setServiceInfo] = useState(null);
+  const [serviceInfo, setServiceInfo] = useState<{ port: number; proxy: string; endpoint: string } | null>(null);
   const [result, setResult] = useState("");
 
   const checkStatus = async () => {

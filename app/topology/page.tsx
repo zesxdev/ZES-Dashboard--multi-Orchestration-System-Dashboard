@@ -51,7 +51,11 @@ export default function TopologyPage() {
       h.service?.toLowerCase() === id.toLowerCase() ||
       h.id?.toLowerCase() === id.toLowerCase()
     );
-    if (match !== undefined) return match.alive ?? match.status === "running" ?? match.ok ?? false;
+    if (match !== undefined) {
+      if (match.alive != null) return match.alive;
+      if (match.status === "running") return true;
+      return match.ok ?? false;
+    }
     // For services without explicit health check, check port
     const svc = services.find((s) => s.id === id);
     if (svc && svc.port > 0) {

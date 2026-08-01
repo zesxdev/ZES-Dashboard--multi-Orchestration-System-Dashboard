@@ -13,7 +13,7 @@ interface DiagramNodeProps {
   type: "atem" | "pc" | "device" | "converter" | "cloud" | "stream"
   x: number
   y: number
-  system: "main" | "sub" | "external"
+  system: string
   isSelected: boolean
   isConnected: boolean
   isHovered: boolean

@@ -301,7 +301,7 @@ export default function Terminal() {
 interface TerminalContentProps {
   commands: CommandType[]
   theme: ThemeType
-  terminalRef?: React.RefObject<HTMLDivElement>
+  terminalRef?: React.RefObject<HTMLDivElement | null>
   showSuggestions: boolean
   setShowSuggestions: (show: boolean) => void
   addCommand: (command: string) => void

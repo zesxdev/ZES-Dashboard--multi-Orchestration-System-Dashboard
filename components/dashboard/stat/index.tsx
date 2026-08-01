@@ -11,8 +11,9 @@ interface DashboardStatProps {
   description?: string;
   tag?: string;
   icon: React.ElementType;
-  intent?: "positive" | "negative" | "neutral" | "warning";
+  intent?: "positive" | "negative" | "neutral" | "warning" | "default" | "success";
   direction?: "up" | "down" | "neutral";
+  frost?: "blue" | "green" | "orange" | "red";
 }
 
 export default function DashboardStat({
@@ -23,6 +24,7 @@ export default function DashboardStat({
   tag,
   intent,
   direction,
+  frost,
 }: DashboardStatProps) {
   const Icon = icon;
 
@@ -50,7 +52,7 @@ export default function DashboardStat({
   };
 
   const getIntentClassName = () => {
-    if (intent === "positive") return "text-success";
+    if (intent === "positive" || intent === "success") return "text-success";
     if (intent === "negative") return "text-destructive";
     return "text-muted-foreground";
   };
@@ -58,7 +60,7 @@ export default function DashboardStat({
   const { prefix, numericValue, suffix, isNumeric } = parseValue(value);
 
   return (
-    <Card className="relative overflow-hidden">
+    <Card className={cn("relative overflow-hidden", frost && `glass-frost-${frost}`)}>
       <CardHeader className="flex items-center justify-between">
         <CardTitle className="flex items-center gap-2.5">
           <Bullet />
@@ -137,7 +139,7 @@ export default function DashboardStat({
 }
 
 interface ArrowProps {
-  direction: "up" | "down";
+  direction: "up" | "down" | "neutral";
   index: number;
 }
 
@@ -160,7 +162,7 @@ const Arrow = ({ direction, index }: ArrowProps) => {
         "will-change-transform"
       )}
     >
-      {direction === "up" ? "↑" : "↓"}
+      {direction === "up" ? "↑" : direction === "neutral" ? "→" : "↓"}
     </span>
   );
 };

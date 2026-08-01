@@ -319,9 +319,9 @@ function FactCard({ fact, selected, onSelect }: {
             {fact.category}
           </Badge>
           {fact.has_hrr ? (
-            <Sparkles className="size-3 text-emerald-400" title="HRR vector encoded" />
+            <Sparkles className="size-3 text-emerald-400" aria-label="HRR vector encoded" />
           ) : (
-            <AlertCircle className="size-3 text-amber-400" title="No HRR vector" />
+            <AlertCircle className="size-3 text-amber-400" aria-label="No HRR vector" />
           )}
           <span className="text-[10px] font-mono text-muted-foreground">
             {(fact.trust_score * 100).toFixed(0)}%

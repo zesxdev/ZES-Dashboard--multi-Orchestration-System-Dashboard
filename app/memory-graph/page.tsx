@@ -11,6 +11,7 @@ import {
   Search, Database, Hash, Layers, Zap, Tag, Network,
   Sparkles, RefreshCw, ExternalLink,
 } from "lucide-react";
+import type { Edge } from "vis-network";
 import Link from "next/link";
 
 /* ────────────── Types ────────────── */
@@ -187,6 +188,10 @@ export default function MemoryGraphPage() {
   useEffect(() => {
     if (loading || !containerRef.current) return;
 
+    const handleResize = () => {
+      networkRef.current?.fit({ animation: false });
+    };
+
     const initNetwork = async () => {
       const { Network } = await import("vis-network");
       
@@ -221,7 +226,7 @@ export default function MemoryGraphPage() {
         size: 15 + n.trust_score * 20,
       }));
 
-      const visEdges = rels.map(r => ({
+      const visEdges: Edge[] = rels.map(r => ({
         from: r.from,
         to: r.to,
         title: r.type.replace(/_/g, " "),
@@ -232,7 +237,7 @@ export default function MemoryGraphPage() {
           color: "oklch(0.6 0.05 0 / 0.5)",
           strokeWidth: 0,
         },
-        smooth: { type: "continuous" },
+        smooth: { type: "continuous", enabled: true, roundness: 0.5 },
         width: r.type === "shared_entity" ? 1.5 : 0.8,
         dashes: r.type === "high_trust_similarity",
       }));
@@ -269,10 +274,6 @@ export default function MemoryGraphPage() {
 
       networkRef.current = network;
 
-      // Responsive resize on window change
-      const handleResize = () => {
-        network.fit({ animation: false });
-      };
       window.addEventListener('resize', handleResize);
       network.once('stabilizationIterationsDone', () => {
         network.fit({ animation: true });
@@ -380,7 +381,7 @@ export default function MemoryGraphPage() {
             <div className="flex items-center gap-2 mb-2">
               <span className="inline-block size-2.5 rounded-full shrink-0" style={{ background: CAT_COLORS[selected.category] || "oklch(0.5 0.1 0)" }} />
               <span className="text-[10px] font-semibold uppercase tracking-wider">{selected.type}</span>
-              {selected.has_hrr && <Sparkles className="size-3 text-emerald-400 ml-auto" title="HRR encoded" />}
+              {selected.has_hrr && <Sparkles className="size-3 text-emerald-400 ml-auto" aria-label="HRR encoded" />}
             </div>
             <p className="text-xs leading-relaxed mb-3">{selected.text}</p>
 

@@ -32,7 +32,7 @@ export async function GET() {
     const data = JSON.parse(readFileSync(ROSTER_PATH, "utf-8"));
 
     // Build org tree
-    const agentMap = new Map(
+    const agentMap = new Map<string, any>(
       data.agents.map((a: any) => [a.id, { ...a, reports: [] }]),
     );
     const roots: any[] = [];
