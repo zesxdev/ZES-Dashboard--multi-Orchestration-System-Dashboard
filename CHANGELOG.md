@@ -72,3 +72,15 @@ All notable changes to ZES OS will be documented in this file.
 - Codex config.toml: `[model_providers.bitrouter]` added (base_url :4356/v1)
 - `claude-9router-proxy.js` renamed → `claude-bitrouter-proxy.js` (routes to BitRouter :4356)
 - Dashboard /9router page describes provider & key management; sidebar shows both BitRouter + 9Router
+
+## [4.3.2] — 2026-08-01
+
+### Added
+- **Mindwalk** — 3D agent-session replay at `/mindwalk` on ZES Dashboard (:5051), under the System group
+  - Native Next.js port of `cosmtrek/mindwalk` (no Go binary): squarified-treemap citymap over `~/.codex/sessions` + `~/.claude/projects` JSONL traces (22 Codex + 62 Claude sessions detected)
+  - Frost-themed 3D city (InstancedMesh + Three.js): attention-height touch colors (moss/read/edited), LOC-height terrain mode, walker glow, dir labels, click-to-inspect, scrub playback with histogram + speed, 12-chip HUD (fovea/parafovea/error-rate/churn…)
+  - New APIs: `/api/mindwalk/sessions`, `/api/mindwalk/trace`, `/api/mindwalk/map` (Node runtime, path-traversal guarded)
+  - Graceful WebGL fallback — orange frost card instead of a page crash when a browser can't create a WebGL context
+
+### Dependencies
+- Dashboard: `three@0.185.1` + `@types/three`

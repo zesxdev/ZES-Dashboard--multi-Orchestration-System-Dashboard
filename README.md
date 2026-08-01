@@ -25,7 +25,7 @@ ZES OS orchestrates **three AI agents** — Codex CLI, Hermes Agent, and Claude 
 │  Claude    ──┘                      53+ Models              │
 │                                                             │
 │  Memory Hub ── 57+ shared facts across all agents           │
-│  Dashboard  ── 31 pages · Next.js 15 · Frost Design         │
+│  Dashboard  ── 49 pages · Next.js 15 · Frost Design         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -49,7 +49,8 @@ cd ~/zes-os-dashboard && npm run dev
 | **🤖 Agent Trinity** | Codex (coder) · Hermes (orchestrator) · Claude (reviewer) |
 | **🧠 Shared Memory** | SQLite FTS5 hub — cross-agent persistent memory |
 | **🔀 BitRouter Gateway** | 53 models · 12 providers · automatic failover |
-| **📊 Unified Dashboard** | 31 pages · glassmorphic UI · mobile-optimized |
+| **📊 Unified Dashboard** | 49 pages · glassmorphic UI · mobile-optimized |
+| **🏙️ Mindwalk Replay** | 3D city replay of Codex/Claude sessions · Frost design |
 | **🔒 Tor Network** | Privacy-first routing for all agent traffic |
 | **🎨 Frost Design** | 4-color glassmorphic design system |
 | **🧩 96 Skills** | Plug-and-play agent capabilities |
