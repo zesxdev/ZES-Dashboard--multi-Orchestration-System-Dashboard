@@ -85,7 +85,7 @@ layer (data plane) — it routes requests across the models 9router configures.
 | Hermes Dashboard | `:9119` | `hermes dashboard` |
 | Claude Code Proxy | `:5905` | runsv-managed |
 | ZES Dashboard | `:5051` | Next.js · 49 pages · Mindwalk at `/mindwalk` |
-| Memory Hub | SQLite + FTS5 | Cross-agent shared |
+| Memory Hub | SQLite + FTS5 + vectors | Cross-agent shared - MCP server `zes-memory-hub` (stdio) |
 
 **Dashboard notes (2026-08-01):** New Company dialog is portaled to `document.body` (full-screen mobile overlay); mobile bottom nav offsets content via `--bottom-nav-h` (layout padding + full-viewport pages Mindwalk / Topology 3D / Wireflow).
 
