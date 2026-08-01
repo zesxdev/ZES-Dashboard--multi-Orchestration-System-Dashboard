@@ -36,12 +36,35 @@ def cmd_export():
     with open(SHARED_MD, 'w') as f:
         f.write(md_content)
     print(f"✓ Exported {len(memories)} memories to {SHARED_MD}")
-    # Also write to Codex's raw_memories.md so Codex sees it
+    # Also write to Codex's raw_memories.md so Codex sees it.
+    # Preserve any local notes Codex keeps under "## Codex Local Notes" so
+    # they survive the overwrite and can be imported by cmd_import_codex.
+    local_notes = _read_local_notes(CODEX_RAW)
+    codex_content = md_content
+    if local_notes:
+        codex_content += "\n## Codex Local Notes\n" + local_notes
     os.makedirs(os.path.dirname(CODEX_RAW), exist_ok=True)
     with open(CODEX_RAW, 'w') as f:
-        f.write(md_content)
+        f.write(codex_content)
     print(f"  → Copied to Codex: {CODEX_RAW}")
     store.shutdown()
+
+def _read_local_notes(path):
+    """Extract the '## Codex Local Notes' section (if any) from a raw file."""
+    try:
+        with open(path) as f:
+            lines = f.read().split('\n')
+    except OSError:
+        return ""
+    out, in_section = [], False
+    for ln in lines:
+        if ln.strip().startswith('## '):
+            in_section = ln.strip() == '## Codex Local Notes'
+            continue
+        if in_section:
+            out.append(ln)
+    return "\n".join(out).strip()
+
 
 def cmd_import_codex():
     """Import new facts from Codex's raw_memories.md into Memory Hub."""
@@ -247,10 +270,11 @@ def cmd_import_claude_mem():
     store.shutdown()
 
 def cmd_cron():
-    """Run full sync cycle — claude-mem, export, then codex import."""
+    """Run full sync cycle — import Codex local notes FIRST (so export can't
+    clobber them), then claude-mem, then export to all agents."""
+    cmd_import_codex()
     cmd_import_claude_mem()
     cmd_export()
-    cmd_import_codex()
     print("✓ Bridge sync complete")
 
 if __name__ == '__main__':
