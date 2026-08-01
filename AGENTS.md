@@ -1,7 +1,7 @@
 # ZES OS — Zes Orchestration System
 
-**Version:** 4.2.0  
-**Last Updated:** 2026-07-30  
+**Version:** 4.3.2  
+**Last Updated:** 2026-08-01  
 **Repo:** [github.com/zesxdev/zes-os](https://github.com/zesxdev/zes-os)
 
 ---
@@ -12,7 +12,7 @@ ZES OS orchestrates three AI agents — **Codex CLI**, **Hermes Agent**, and **C
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                    ZES OS v4.2.0                                  │
+│                    ZES OS v4.3.2                                  │
 │              Zes Orchestration System                             │
 │                                                                  │
 │  ┌──────────┐   ┌──────────┐   ┌──────────┐                     │
@@ -36,10 +36,9 @@ ZES OS orchestrates three AI agents — **Codex CLI**, **Hermes Agent**, and **C
 │                                                                  │
 │  ┌──────────┐   ┌──────────────┐   ┌──────────────────┐         │
 │  │ ZES OS   │   │ ZES Memory   │   │ ZES CLI Toolkit  │         │
-│  │ Dashboards│   │ Hub :memory  │   │ research|batch   │         │
-│  │ :5173    │   │ 52+ facts    │   │ status|debug     │         │
-│  │          │   │              │   │                  │         │
-│  │ :4000    │   │              │   │                  │         │
+│  │ Dashboard │   │ Hub :memory  │   │ research|batch   │         │
+│  │ :5051     │   │ 200+ facts   │   │ status|debug     │         │
+│  │ 49 pages  │   │              │   │                  │         │
 │  └──────────┘   └──────────────┘   └──────────────────┘         │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -85,12 +84,12 @@ layer (data plane) — it routes requests across the models 9router configures.
 | BitRouter AI Gateway | `:4356` | Primary LLM router |
 | Hermes Dashboard | `:9119` | `hermes dashboard` |
 | Claude Code Proxy | `:5905` | runsv-managed |
-| ZES Dashboard | `:5051` | Next.js |
+| ZES Dashboard | `:5051` | Next.js · 49 pages · Mindwalk at `/mindwalk` |
 | Memory Hub | SQLite + FTS5 | Cross-agent shared |
 
 ## 5. Shared Memory
 
-ZES agents share memory through the ZES Memory Hub. 57+ memories across Codex, Hermes, and Claude Code.
+ZES agents share memory through the ZES Memory Hub. 200+ memories across Codex, Hermes, and Claude Code.
 
 **Read:** `~/.codex/memories/raw_memories.md` | `~/.zes/shared-memory.md`
 **Write:** `zes-memory-bridge export` after inserting via hub API
@@ -102,7 +101,7 @@ ZES agents share memory through the ZES Memory Hub. 57+ memories across Codex, H
 npx codexapp           # Codex Web UI (:5900)
 hermes                 # Hermes Agent CLI
 hermes dashboard       # Hermes Dashboard (:9119)
-cd ~/zes-os-dashboard && npm run dev  # ZES Dashboard
+cd ~/Documents/Codex/2026-07-27/zes-dashboard-frost && npm run dev  # ZES Dashboard (:5051, runsv: zes-dashboard)
 
 # Memory
 zes-memory-bridge status   # Check state

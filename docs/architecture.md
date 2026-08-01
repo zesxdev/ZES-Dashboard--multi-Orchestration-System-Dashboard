@@ -1,6 +1,6 @@
 # ZES OS — Architecture
 
-**Last Updated:** 2026-07-30
+**Last Updated:** 2026-08-01
 
 ---
 
@@ -8,7 +8,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      ZES OS v4.2                             │
+│                      ZES OS v4.3                             │
 │                                                             │
 │  ┌─────────┐  ┌──────────┐  ┌──────────┐                    │
 │  │ Codex   │  │ Hermes   │  │ Claude   │                    │
@@ -35,7 +35,7 @@
 │  │         ZES OS Shared Layer                       │        │
 │  │  ┌──────────┐  ┌──────────┐  ┌───────────────┐ │        │
 │  │  │ Memory   │  │ Skills   │  │ Dashboard     │ │        │
-│  │  │ Hub      │  │ Engine   │  │ :5051 · 31pg  │ │        │
+│  │  │ Hub      │  │ Engine   │  │ :5051 · 49pg  │ │        │
 │  │  │ SQLite   │  │ 96 sk.   │  │ Frost UI     │ │        │
 │  │  └──────────┘  └──────────┘  └───────────────┘ │        │
 │  └─────────────────────────────────────────────────┘        │
@@ -80,6 +80,14 @@ LLM Provider → Response → Agent → Memory Hub → Dashboard
 | Database | SQLite + FTS5 (Memory Hub) |
 | Privacy | Tor (optional) |
 | Deployment | Termux on Android aarch64 |
+
+## Dashboard Pages
+
+- **49 pages** on Next.js 15.5 + Frost Design (blue/green/orange/red glass cards)
+- **Mindwalk** (`/mindwalk`) — 3D city replay of Codex + Claude session traces (squarified
+  treemap over `~/.codex/sessions` + `~/.claude/projects` JSONL, scrub playback, 12-chip HUD,
+  WebGL fallback). Native port of `cosmtrek/mindwalk` — no Go binary required.
+- APIs: `/api/mindwalk/sessions`, `/api/mindwalk/trace`, `/api/mindwalk/map`
 
 ## Port Map
 

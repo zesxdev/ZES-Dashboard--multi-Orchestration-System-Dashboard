@@ -1,16 +1,17 @@
 # ZES OS — Roadmap
 
-> **Version:** 4.2.0 · **Last Updated:** 2026-07-30
+> **Version:** 4.3.2 · **Last Updated:** 2026-08-01
 
 ---
 
-## Current State (v4.2.0)
+## Current State (v4.3.2)
 
 - ✅ Agent Trinity: Codex + Hermes + Claude Code
 - ✅ BitRouter AI Gateway with 53+ models, 12 providers
-- ✅ ZES Memory Hub (57+ shared facts across agents)
+- ✅ ZES Memory Hub (200+ shared facts across agents)
 - ✅ Frost Design System (4-color glassmorphic UI)
-- ✅ 31-page unified dashboard on Next.js 15
+- ✅ 49-page unified dashboard on Next.js 15
+- ✅ Mindwalk 3D session replay at `/mindwalk` (Codex + Claude traces)
 - ✅ 96 skills across all agents
 - ✅ Tor network integration for privacy
 
@@ -49,11 +50,19 @@
   - One-click log viewer
   - Service dependency graph
 
+### 5. Agent Session Replay (Mindwalk)
+- [x] **Goal:** Replay agent sessions as a 3D city (cosmtrek/mindwalk port)
+- **Actions:**
+  - [x] Squarified-treemap citymap over Codex/Claude JSONL traces
+  - [x] Scrub playback, histogram, 12-chip HUD, WebGL fallback
+  - [ ] Optional LLM judge "report" artifact (mindwalk report mode)
+  - [ ] Session diff view — compare two runs side by side
+
 ---
 
 ## Medium-Term (Q4 2026)
 
-### 5. Plugin Marketplace
+### 6. Plugin Marketplace
 - **Goal:** Install third-party agent skills from catalog
 - **Actions:**
   - Skill registry with versioning
@@ -61,7 +70,7 @@
   - Skill dependency management
   - Community skill submissions
 
-### 6. CI/CD Pipeline
+### 7. CI/CD Pipeline
 - **Goal:** Automated testing & deployment
 - **Actions:**
   - GitHub Actions for dashboard builds
@@ -69,7 +78,7 @@
   - Automated accessibility audits
   - Visual regression testing
 
-### 7. Cross-Agent Eval Framework
+### 8. Cross-Agent Eval Framework
 - **Goal:** Benchmark agent performance
 - **Actions:**
   - Task completion scoring
@@ -77,7 +86,7 @@
   - Cost-per-task analytics
   - Agent comparison dashboard
 
-### 8. Telemetry & Monitoring
+### 9. Telemetry & Monitoring
 - **Goal:** System health observability
 - **Actions:**
   - LLM request/response logging
@@ -89,7 +98,7 @@
 
 ## Long-Term (2027)
 
-### 9. Web-Based Agent Orchestration UI
+### 10. Web-Based Agent Orchestration UI
 - **Goal:** Manage all agents from a browser
 - **Actions:**
   - Agent lifecycle management UI
@@ -97,7 +106,7 @@
   - Visual workflow builder
   - Multi-session management
 
-### 10. ZES Cloud Sync
+### 11. ZES Cloud Sync
 - **Goal:** Cross-device agent state sync
 - **Actions:**
   - Encrypted cloud memory backup
@@ -105,7 +114,7 @@
   - Sync conflict resolution
   - Offline-first architecture
 
-### 11. Multi-Device Mesh
+### 12. Multi-Device Mesh
 - **Goal:** Distribute agents across devices
 - **Actions:**
   - Hermes on server, Codex on phone
@@ -113,7 +122,7 @@
   - Device capability discovery
   - Load-balanced LLM routing
 
-### 12. Advanced Security
+### 13. Advanced Security
 - **Goal:** Production-grade security
 - **Actions:**
   - End-to-end encryption for agent comms
