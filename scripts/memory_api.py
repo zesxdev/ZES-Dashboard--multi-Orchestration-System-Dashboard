@@ -524,7 +524,7 @@ if __name__ == '__main__':
         elif cmd == 'seed_relations': cmd_seed_relations()
         elif cmd == 'insert': cmd_insert(*sys.argv[2:8])
         elif cmd == 'update': cmd_update(*sys.argv[2:5])
-        elif cmd == 'delete': cmd_delete(*sys.argv[2])
+        elif cmd == 'delete': cmd_delete(sys.argv[2])
         elif cmd == 'search': cmd_search(*sys.argv[2:3])
         elif cmd == 'vector_search': cmd_vector_search(*sys.argv[2:4])
         elif cmd == 'embed_all': cmd_embed_all(*sys.argv[2:3])
