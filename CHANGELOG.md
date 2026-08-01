@@ -2,6 +2,19 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.5] — 2026-08-01
+
+### Added
+- Memory Hub vector search (ruflo research adoptions):
+  - `memory_vectors` table (schema v2), Gemini `gemini-embedding-2` (3072-dim) primary embedder with deterministic local-hash fallback (512-dim)
+  - `MemoryStore.semantic_search()` — cosine ranking RRF-fused with FTS5; retry-once when query falls back while Gemini vectors exist
+  - `MemoryStore.embed_all()` — backfill; auto-upgrades `local-hash` rows to Gemini once quota recovers
+  - CLI: `zes-memory-bridge embed [--force]`, `zes-memory-bridge search <query>`
+  - API: `memory_api.py vector_search <query> [limit]`, `embed_all [force]`
+- `MemoryStore.consolidate()` — dedup metric telemetry, prune stale low-usage metrics, optimize FTS (removed 993 duplicates on first run: 1644 → 658 memories)
+- `zes-memory-sync` runsv cycle now: export → consolidate → embed (every 15 min)
+- Loop receipts: codex/claude self-improvement pipelines append `type: receipt` (outcome, duration, counts) to `~/.zes/learnings/`
+
 ## [4.2.4] — 2026-08-01
 
 ### Fixed

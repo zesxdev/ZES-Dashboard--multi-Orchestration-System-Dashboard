@@ -32,7 +32,7 @@
   - [x] Inline memory editing from dashboard
   - [x] Memory API fixed and working
   - [x] Inline memory editing from dashboard
-  - [ ] Memory search with vector embeddings (ruflo research: HNSW/FTS5 hybrid — see docs/research/ruflo-2026-08-01.md)
+  - [x] Memory search with vector embeddings (prototype live: Gemini embeddings + local-hash fallback, RRF-fused with FTS5 — see docs/research/ruflo-2026-08-01.md)
 
 ### 3. Mobile Optimization
 - [x] **Goal:** Fully functional on phone screens

@@ -16,6 +16,8 @@ Usage:
   python3 memory_api.py update <id> <content> <tags>
   python3 memory_api.py delete <id>
   python3 memory_api.py search <query>
+  python3 memory_api.py vector_search <query> [limit]
+  python3 memory_api.py embed_all [force]
 """
 
 import os, re, sys, json, sqlite3, time
@@ -443,6 +445,30 @@ def cmd_delete(mid):
     print(json.dumps({'status': 'ok'}))
 
 
+def cmd_vector_search(query, limit='10'):
+    store.initialize()
+    results = store.semantic_search(query, limit=int(limit))
+    items = []
+    for m in results:
+        items.append({
+            'id': m.get('hash'),
+            'type': m.get('type', 'fact'),
+            'content': m.get('content', ''),
+            'tags': m.get('tags', '').split(',') if m.get('tags') else [],
+            'source': m.get('source', ''),
+            'created_at': m.get('created_at', 0),
+            'score': m.get('score', 0.0),
+            'vector_model': m.get('vector_model', ''),
+        })
+    print(json.dumps(items))
+
+
+def cmd_embed_all(force=''):
+    store.initialize()
+    res = store.embed_all(force=bool(force and force.lower() in ('1', 'true', 'force')))
+    print(json.dumps({'status': 'ok', **res}))
+
+
 def cmd_search(query):
     store.initialize()
     results = store.search(query, limit=50)
@@ -476,6 +502,8 @@ if __name__ == '__main__':
         elif cmd == 'update': cmd_update(*sys.argv[2:5])
         elif cmd == 'delete': cmd_delete(*sys.argv[2])
         elif cmd == 'search': cmd_search(*sys.argv[2:3])
+        elif cmd == 'vector_search': cmd_vector_search(*sys.argv[2:4])
+        elif cmd == 'embed_all': cmd_embed_all(*sys.argv[2:3])
         else: print(json.dumps({'error': f'unknown command: {cmd}'}))
     except Exception as e:
         print(json.dumps({'error': str(e)}))

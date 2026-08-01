@@ -106,6 +106,37 @@ def cmd_status():
         print(f"  [{m['source']:7}] {m['content'][:70]}...")
     store.shutdown()
 
+
+
+def cmd_embed(force=False):
+    """Backfill vector embeddings for all memories (Gemini, local-hash fallback)."""
+    store.initialize()
+    res = store.embed_all(force=force)
+    print(f"✓ Embeddings: {res['embedded']} embedded / {res['total']} total (skipped {res['skipped']})")
+    store.shutdown()
+
+def cmd_search(query, top=8):
+    """Semantic (vector) search across memory, RRF-fused with FTS5."""
+    store.initialize()
+    results = store.semantic_search(query, limit=int(top))
+    if not results:
+        print("! No results (no embeddings yet — run: zes-memory-bridge embed)")
+        store.shutdown()
+        return
+    print(f"Top {len(results)} for: {query}\n")
+    for m in results:
+        print(f"  [{m['score']:.3f}] ({m['vector_model']}) {m['content'][:110]}")
+    store.shutdown()
+
+
+
+def cmd_consolidate(days=7):
+    """Dedup metric telemetry + prune stale low-usage metrics + optimize FTS."""
+    store.initialize()
+    res = store.consolidate(metric_days=int(days))
+    print(f"✓ Consolidation: deduped {res['deduped']}, pruned {res['pruned']} (total {res['total_deleted']} removed)")
+    store.shutdown()
+
 def cmd_cron():
     """Run full sync cycle — export then import."""
     cmd_export()
@@ -115,7 +146,15 @@ def cmd_cron():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ZES Memory Bridge')
     parser.add_argument('action', nargs='?', default='status',
-                        choices=['export', 'import', 'status', 'cron'])
+                        choices=['export', 'import', 'status', 'cron', 'embed', 'search', 'consolidate'])
+    parser.add_argument('query', nargs='*', default=[])
+    parser.add_argument('--force', action='store_true', help='re-embed all (embed)')
     args = parser.parse_args()
-    {'export': cmd_export, 'import': cmd_import_codex,
-     'status': cmd_status, 'cron': cmd_cron}[args.action]()
+    actions = {
+        'export': cmd_export, 'import': cmd_import_codex,
+        'status': cmd_status, 'cron': cmd_cron,
+        'embed': lambda: cmd_embed(args.force),
+        'consolidate': lambda: cmd_consolidate(args.query[0] if args.query else 7),
+        'search': lambda: cmd_search(' '.join(args.query) or ''),
+    }
+    actions[args.action]()
