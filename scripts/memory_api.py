@@ -318,6 +318,29 @@ def cmd_memories(limit=50, offset=0, query=''):
     print(json.dumps({'memories': results}))
 
 
+def cmd_company_facts(company_id, limit=20):
+    """List hub memories tagged company:<id> — company-scoped shared knowledge."""
+    conn = sqlite3.connect(HUB_DB)
+    conn.row_factory = sqlite3.Row
+    try:
+        like = f"%company:{company_id}%"
+        rows = conn.execute(
+            """SELECT id, type, scope, priority, content, tags, source,
+                      created_at, updated_at, usage_count
+               FROM memories
+               WHERE tags LIKE ?
+               ORDER BY updated_at DESC
+               LIMIT ?""",
+            (like, int(limit)),
+        ).fetchall()
+        out = [{k: r[k] for k in r.keys()} for r in rows]
+        for m in out:
+            m["tags"] = (m.get("tags") or "").split(",")
+        print(json.dumps({"facts": out, "total": len(out)}))
+    finally:
+        conn.close()
+
+
 def cmd_entities():
     conn = _holo_conn()
     try:
@@ -494,6 +517,7 @@ if __name__ == '__main__':
         if cmd == 'stats': cmd_stats()
         elif cmd == 'facts': cmd_facts(*sys.argv[2:6])
         elif cmd == 'memories': cmd_memories(*sys.argv[2:5])
+        elif cmd == 'company_facts': cmd_company_facts(*sys.argv[2:4])
         elif cmd == 'entities': cmd_entities()
         elif cmd == 'relations': cmd_relations(*sys.argv[2:3])
         elif cmd == 'insert_relation': cmd_insert_relation(*sys.argv[2:5])
