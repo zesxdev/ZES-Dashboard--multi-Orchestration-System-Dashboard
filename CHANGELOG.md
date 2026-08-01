@@ -2,6 +2,13 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.7] — 2026-08-01
+
+### Changed
+- Usage tracking moved **fully** to BitRouter (`:4356`) — 9Router is now a pure provider control plane (provider connections, API keys, proxy pools only)
+- BitRouter telemetry enabled via `plugins.bitrouter-observe.telemetry` (`level: metadata`) — per-request model, input/output tokens, latency, finish reason, and routing decisions; OTLP GenAI metrics available via `plugins.bitrouter-observe.otel` (`/metrics`)
+- Dashboard `/9router` re-roled as control plane; `/bitrouter` now advertises usage tracking (data plane)
+
 ## [4.2.6] — 2026-08-01
 
 ### Added
@@ -109,7 +116,7 @@ All notable changes to ZES OS will be documented in this file.
 
 ### Changed
 - BitRouter now runs as a persistent runsv service (`sv start bitrouter`) — survives restarts
-- 9Router re-purposed as the **control plane**: provider connections, API keys, proxy pools & usage tracking (:20128, runsv r9)
+- 9Router re-purposed as the **control plane**: provider connections, API keys, proxy pools (:20128, runsv r9) — usage tracking later moved fully to BitRouter (v4.2.7)
 - BitRouter is the **data plane**: LLM routing across 54 models (:4356, runsv bitrouter)
 - Codex config.toml: `[model_providers.bitrouter]` added (base_url :4356/v1)
 - `claude-9router-proxy.js` renamed → `claude-bitrouter-proxy.js` (routes to BitRouter :4356)

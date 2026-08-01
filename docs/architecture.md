@@ -18,17 +18,23 @@
 │       │            │              │                          │
 │       └───────┬────┴──────────────┘                          │
 │               ▼                                               │
-│     ┌──────────────────┐                                     │
-│     │  BitRouter :4356  │  Primary LLM Router                 │
-│     │  53 models        │  Auto-failover                      │
-│     │  12 providers     │  Load balancing                     │
-│     └────────┬─────────┘                                     │
-│              ▼                                                │
+│     ┌─────────────────────────┐                               │
+│     │  BitRouter :4356         │  Data plane — LLM routing    │
+│     │  53 models · 12 prov.    │  Usage tracking: tokens,     │
+│     │                         │  latency, routing decisions   │
+│     └────────────┬────────────┘                               │
+│                  ▼                                             │
 │     ┌────────────────────────────────────┐                   │
 │     │  12 LLM Providers                   │                   │
 │     │  opencode-zen · openai · anthropic   │                   │
 │     │  groq · openrouter · google          │                   │
 │     │  deepseek · mistral · cohere · ...   │                   │
+│     └────────────────────────────────────┘                   │
+│                                                             │
+│     ┌────────────────────────────────────┐                   │
+│     │  9Router :20128 — Control plane    │                   │
+│     │  Provider conns · API keys ·       │                   │
+│     │  proxy pools (no usage tracking)   │                   │
 │     └────────────────────────────────────┘                   │
 │                                                             │
 │  ┌─────────────────────────────────────────────────┐        │
@@ -44,7 +50,7 @@
 
 ## Design Principles
 
-1. **BitRouter First** — All LLM traffic routes through BitRouter for unified metrics, failover, and cost tracking
+1. **BitRouter First** — All LLM traffic routes through BitRouter for unified usage tracking, metrics, failover, and cost control
 2. **Shared Memory** — All agents read/write to a single SQLite FTS5 hub for persistent cross-agent context
 3. **Mobile-First** — Dashboard optimized for phone screens (Termux runs on Android)
 4. **Privacy by Default** — Tor network integration, secrets isolation, no telemetry
@@ -62,11 +68,16 @@ BitRouter (:4356)
     ├── Request routing
     ├── Model selection
     ├── Load balancing
-    └── Fallback chain
+    ├── Fallback chain
+    └── Usage tracking (model, tokens, latency, routing → telemetry/OTel)
     │
     ▼
 LLM Provider → Response → Agent → Memory Hub → Dashboard
 ```
+
+9Router (:20128) is the **control plane**: it manages provider connections, API keys, and
+proxy pools — it is *not* involved in request routing or usage accounting. Usage tracking
+is owned entirely by BitRouter (data plane).
 
 ## Technology Stack
 
@@ -94,6 +105,7 @@ LLM Provider → Response → Agent → Memory Hub → Dashboard
 | Port | Service | Protocol |
 |------|---------|----------|
 | 4356 | BitRouter | HTTP/REST |
+| 20128 | 9Router | HTTP (control plane) |
 | 5051 | ZES Dashboard | HTTP/Next.js |
 | 5900 | Codex Web UI | HTTP/WebSocket |
 | 5905 | Claude Proxy | HTTP/Anthropic |
