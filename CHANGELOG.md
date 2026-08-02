@@ -2,6 +2,17 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.9] — 2026-08-02
+
+### Added
+- **Usage history persistence** — new runsv daemon `usage-snapshot` (`~/bin/usage-snapshot.py`): scrapes collector Prometheus
+  metrics every 5 min, computes interval deltas, appends to `~/.zes/usage-history.jsonl` (max 500 entries). Preserves history
+  beyond the collector's 15-min metric retention
+- Dashboard `/usage` now includes a **latency distribution chart** (histogram of duration buckets) and **usage history chart**
+  (requests + input/output tokens over time, last 12h at 5-min snapshots) plus latency stats (avg/p50/p95/samples)
+- API `/api/usage` extended with `latencyDist` (per-bucket counts from cumulative duration buckets) and `history`
+  (last 144 JSONL snapshots)
+
 ## [4.2.8] — 2026-08-01
 
 ### Added

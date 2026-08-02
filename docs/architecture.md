@@ -108,6 +108,7 @@ is owned entirely by BitRouter (data plane).
 | 20128 | 9Router | HTTP (control plane) |
 | 4318 | OTLP dispatcher | HTTP (traces+metrics → collector) |
 | 4319 | OTel Collector (Prometheus) | HTTP (metrics scrape) |
+| 4319+ | usage-snapshot daemon | JSONL history → `~/.zes/usage-history.jsonl` |
 | 5051 | ZES Dashboard | HTTP/Next.js |
 | 5900 | Codex Web UI | HTTP/WebSocket |
 | 5905 | Claude Proxy | HTTP/Anthropic |
