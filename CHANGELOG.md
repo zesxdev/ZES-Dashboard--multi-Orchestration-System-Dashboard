@@ -2,6 +2,21 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.12] — 2026-08-02
+
+### Added
+- **amux agent teams panel** — control plane for Codex / Hermes / Claude at `http://127.0.0.1:8822`:
+  - runsv service `amux` (`amux-server.py 8822 --bind 127.0.0.1 --no-tls`), logs to `~/logs/amux/current`
+  - Sessions: `codex` (bitrouter, deepseek-v4-flash, resume-capable), `hermes`
+    (Hermes REPL on `hermes_zes` profile), `claude` (via `~/.claude/settings.json` → proxy :5905)
+  - Removed stale non-agent stubs (`bridge`, `flask-api`, `router`, `vite-dash`, `zes-user`) → `~/.amux/sessions.disabled/`
+- **ZES patch `AMUX_CMD`** — per-session custom command hook in `amux` CLI + `amux-server.py`
+  (skips Claude `--model`/`--mcp-config` injection so Hermes runs clean);
+  patch saved at `patches/amux-zes-cmd.patch` (re-apply after upstream updates)
+- Amux updated to upstream HEAD (`4ec7d68`), CLI/server reinstalled to `$PREFIX/bin`
+- Dashboard `/teams` — amux portal card (live status) + frost agent cards for Codex / Hermes / Claude
+- `docs/amux.md` — service, sessions, patch, and CLI reference
+
 ## [4.2.11] — 2026-08-02
 
 ### Added
