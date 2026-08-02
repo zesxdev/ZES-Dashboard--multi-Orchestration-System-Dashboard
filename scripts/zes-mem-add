@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# zes-mem-add — add a memory to the ZES Memory Hub (shared across Codex/Hermes/Claude).
+# Usage: zes-mem-add "content" [type] [tags] [priority]
+#   type:     fact (default) | decision | pattern | preference
+#   tags:     comma-separated, e.g. "bitrouter,usage"
+#   priority: low | medium (default) | high
+# HERMES_HOME is exported explicitly so Hermes profile resolution targets
+# the active profile (hermes_zes) instead of falling back to the default.
+set -euo pipefail
+export HERMES_HOME="${HERMES_HOME:-$HOME/.hermes/profiles/hermes_zes}"
+content="${1:?usage: zes-mem-add \"content\" [type] [tags] [priority]}"
+type="${2:-fact}"
+tags="${3:-}"
+priority="${4:-medium}"
+cd "$HOME/hermes-agent"
+PYTHONPATH=. python3 - "$content" "$type" "$tags" "$priority" <<'PY'
+import sys
+from plugins.memory.zes_memory.store import MemoryStore
+content, typ, tags, priority = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+s = MemoryStore(); s.initialize()
+is_new, mem_id = s.insert({
+    "content": content,
+    "type": typ,
+    "scope": "global",
+    "priority": priority,
+    "tags": tags,
+    "source": "codex",
+})
+print(f"{'✓ new' if is_new else '· duplicate'} memory #{mem_id} [{typ}] — {s.count()} total in hub")
+s.shutdown()
+PY

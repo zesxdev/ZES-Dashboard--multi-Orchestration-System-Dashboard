@@ -2,6 +2,15 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.10] — 2026-08-02
+
+### Fixed
+- **HERMES_HOME fallback warning (issue #18594)** — Hermes subprocesses now always pin the active profile:
+  - `~/.profile` + `~/.bashrc` export `HERMES_HOME=~/.hermes/profiles/hermes_zes` (login + interactive shells)
+  - New `scripts/zes-mem-add` helper (`~/.local/bin/zes-mem-add`) writes hub memories with HERMES_HOME set —
+    replaces the raw inline-python snippet in AGENTS.md docs
+  - AGENTS.md memory-write instructions updated to use `zes-mem-add` (root, Zes-System, session anchors)
+
 ## [4.2.9] — 2026-08-02
 
 ### Added

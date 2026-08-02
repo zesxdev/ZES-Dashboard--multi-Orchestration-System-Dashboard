@@ -94,7 +94,7 @@ layer (data plane) — it routes requests across the models 9router configures.
 ZES agents share memory through the ZES Memory Hub. 200+ memories across Codex, Hermes, and Claude Code.
 
 **Read:** `~/.codex/memories/raw_memories.md` | `~/.zes/shared-memory.md`
-**Write:** `zes-memory-bridge export` after inserting via hub API
+**Write:** `zes-mem-add "content" fact "tags" medium` (pins `HERMES_HOME` to `hermes_zes` profile), then `zes-memory-bridge export`
 
 ## 6. Quick Reference
 
