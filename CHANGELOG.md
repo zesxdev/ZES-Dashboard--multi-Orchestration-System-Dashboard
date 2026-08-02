@@ -2,6 +2,16 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.11] — 2026-08-02
+
+### Added
+- **Termux:Widget home-screen controls** — `scripts/widgets/` (visible) + `scripts/widgets/tasks/` (background):
+  - Visible: `ZES Start All`, `ZES Stop All`, `ZES Health`, `ZES Status`, `ZES Memory Sync`,
+    `ZES Dashboard`, `ZES Hermes`, `ZES BitRouter`, `ZES Battery`
+  - Background tasks: `start-all`, `health-alert`, `memory-sync`, `open-dashboard` (notifications via termux-api)
+  - Symlinked into `~/.shortcuts/` / `~/.shortcuts/tasks/`; all widgets pin `HERMES_HOME` to the `hermes_zes` profile
+- `docs/termux-widget.md` — install + usage guide
+
 ## [4.2.10] — 2026-08-02
 
 ### Fixed
