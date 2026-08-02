@@ -2,6 +2,20 @@
 
 All notable changes to ZES OS will be documented in this file.
 
+## [4.2.13] — 2026-08-02
+
+### Changed
+- **Hermes model routing** — primary now goes through **BitRouter** (`http://127.0.0.1:4356/v1`,
+  `deepseek/deepseek-v4-flash-free`) instead of direct `opencode.ai/zen/v1`, ending the
+  repeated `APIConnectionError` failures (fallback now catches upstream outages).
+  Backed by a local fallback chain through the 9Router gateway (`:20128`): first
+  `groq/llama-3.3-70b-versatile`, then `oc/deepseek-v4-flash-free`.
+- 9Router key moved to `~/.hermes/profiles/hermes_zes/.env` as `ZES_ROUTER_KEY`, referenced
+  via `key_env` in `providers.zes-gateway` / `fallback_providers` / legacy `fallback_model`
+- amux CLI now reaches the HTTP (`--no-tls`) control plane: `AMUX_API`/`AMUX_URL` exported
+  in `~/.bashrc` (was defaulting to HTTPS and falling back to unstamped raw-tmux sends)
+- `docs/hermes.md` — routing config + verification
+
 ## [4.2.12] — 2026-08-02
 
 ### Added
