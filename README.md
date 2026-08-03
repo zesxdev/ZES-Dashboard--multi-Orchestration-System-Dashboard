@@ -10,8 +10,8 @@ Unified agent orchestration System dashboard + Termux backend stack. Hermes-Code
 │                    ZES System                               │
 │                                                            │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐                 │
-│  │  Codex   │  │  Hermes  │  │ OpenClaude│                 │
-│  │  CLI     │  │  Agent   │  │  (OC)    │                 │
+│  │  Codex   │  │  Hermes  │  │ Claude│                 │
+│  │  CLI     │  │  Agent   │  │  (Code)    │                 │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘                 │
 │       │             │             │                        │
 │       └─────────┬───┴─────────────┘                        │
